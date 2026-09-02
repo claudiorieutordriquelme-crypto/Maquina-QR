@@ -147,7 +147,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | 5 | Auth y layout del panel privado | Listo |
 | 6 | CRUD de activos e impresión de etiquetas QR | Listado, alta e impresión listos. Ficha de detalle pendiente |
 | 7 | CRUD de mantenciones | Listo |
-| 8 | Maestros de repuestos y proveedores | Pendiente |
+| 8 | Maestros de repuestos y proveedores | Listo |
 | 9 | Dashboard y reportes | Pendiente |
 | 10 | Configuración y cierre | Pendiente |
 
