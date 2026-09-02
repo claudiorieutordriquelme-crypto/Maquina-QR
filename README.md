@@ -42,6 +42,35 @@ Usar las claves **legacy en formato JWT** (`anon`, `service_role`), no las nueva
 
 `SUPABASE_SERVICE_ROLE_KEY` se necesita recién en la Etapa 7. Hasta entonces ningún camino de ejecución la lee.
 
+### Desarrollo local detrás del proxy corporativo
+
+En la red de Entel el tráfico HTTPS sale re-firmado por Zscaler, y Node solo confía en su bundle interno de CAs: no lee el almacén de certificados de Windows, porque `--use-system-ca` recién existe desde Node 22. Resultado: cualquier llamada del servidor a Supabase falla con `TypeError: fetch failed` y la ficha responde 500, aunque `curl` al mismo host funcione.
+
+Se resuelve exportando el almacén de Windows a un bundle PEM y apuntando Node ahí:
+
+```powershell
+$out = "$env:USERPROFILE\ca-windows.pem"
+$lineas = New-Object System.Collections.Generic.List[string]
+foreach ($almacen in @("Cert:\LocalMachine\Root","Cert:\LocalMachine\CA","Cert:\CurrentUser\Root","Cert:\CurrentUser\CA")) {
+  foreach ($c in (Get-ChildItem $almacen)) {
+    $lineas.Add("-----BEGIN CERTIFICATE-----")
+    $lineas.Add([Convert]::ToBase64String($c.RawData,'InsertLineBreaks'))
+    $lineas.Add("-----END CERTIFICATE-----")
+  }
+}
+$lineas | Out-File -Encoding ascii $out
+```
+
+Y después, en cada sesión de desarrollo:
+
+```bash
+NODE_EXTRA_CA_CERTS="$USERPROFILE/ca-windows.pem" npm run dev
+```
+
+Lo que **nunca** se debe hacer es `NODE_TLS_REJECT_UNAUTHORIZED=0`. Eso apaga la validación de certificados para todo el proceso, incluidas las llamadas que llevan claves de Supabase.
+
+Este problema no existe en Vercel: ahí no hay proxy de inspección.
+
 ## Verificación
 
 ```bash
@@ -105,7 +134,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | 1 | Scaffold Next.js, Tailwind v4, Barlow, paleta Entel | Listo |
 | 2 | Migraciones, RLS, buckets de Storage, seed | Migraciones listas y verificadas. Seed pendiente |
 | 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Objetos recuperados y verificados. Tests pgTAP pendientes |
-| 4 | Ficha pública `/a/[token]` | Pendiente |
+| 4 | Ficha pública `/a/[token]` | Listo |
 | 5 | Auth y layout del panel privado | Pendiente |
 | 6 | CRUD de activos e impresión de etiquetas QR | Pendiente |
 | 7 | CRUD de mantenciones | Pendiente |
@@ -115,10 +144,30 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 
 Nota de contexto: la base de datos de producción ya tiene su schema aplicado, pero los archivos de migración de una iteración anterior de este proyecto se perdieron antes de llegar al repositorio. Las etapas 2 y 3 se reconstruyen recuperando el DDL real desde la base viva, que es la fuente de verdad, y no reescribiéndolo de memoria.
 
+## Despliegue en Vercel
+
+El repositorio se importa en Vercel y queda con despliegue continuo: cada push a `main` va a producción, cada rama levanta un preview. Next.js se detecta solo, no hace falta configurar comandos de build.
+
+Variables de entorno que hay que cargar en Vercel, en Production y en Preview:
+
+| Variable | Cuándo se necesita | Valor |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Ahora | `https://pnxnvorvuvkodutwordo.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Ahora | La clave `anon` en formato JWT, desde Project Settings, API |
+| `NEXT_PUBLIC_APP_URL` | Etapa 6 | El dominio definitivo de producción |
+| `SUPABASE_SERVICE_ROLE_KEY` | Etapa 7 | Solo en Production, nunca con prefijo `NEXT_PUBLIC_` |
+
+Con las dos primeras la ficha pública ya funciona. Las otras dos se cargan cuando su etapa las necesite: una clave que no está cargada es una clave que no se puede filtrar.
+
+`engines.node` está fijado en `22.x` porque `@supabase/supabase-js` ya marca Node 20 como deprecado.
+
+### El dominio antes de imprimir
+
+`NEXT_PUBLIC_APP_URL` es la base de todos los QR impresos. Si el dominio cambia después de imprimir una flota, las etiquetas quedan apuntando al dominio viejo y hay que reimprimirlas una por una. El dominio definitivo se decide antes de habilitar la impresión masiva de la Etapa 6, no después.
+
 ## Pendientes de documentar
 
 Estas secciones son parte del cierre de la Etapa 10 y se completan cuando la funcionalidad exista:
 
-- Cómo desplegar en Vercel
 - Cómo cambiar la bandera `mostrar_costos_publico`
 - Cómo imprimir etiquetas QR
