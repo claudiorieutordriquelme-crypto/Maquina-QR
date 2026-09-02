@@ -60,3 +60,30 @@
   --color-estado-al-dia: var(--color-secundario);
   --color-estado-sin-linea-base: var(--color-gris-400);
 }
+
+/*
+  Reglas de impresion. Existen para las etiquetas QR, que son el unico artefacto
+  del sistema que sale en papel.
+
+  El navegador imprime lo que ve, asi que el encabezado del panel, los botones y
+  las advertencias llevan print:hidden en su propio componente. Aca queda lo que
+  no se puede expresar con una utilidad de Tailwind: el tamano de pagina y los
+  margenes.
+*/
+@media print {
+  @page {
+    size: letter;
+    margin: 8mm;
+  }
+
+  /* Sin sombras ni fondos grises: gastan tinta y no aportan nada en papel. */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Que ninguna etiqueta se corte entre dos hojas. */
+  .zona-impresion > * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

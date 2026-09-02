@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ETIQUETA_ROL, obtenerContexto, type Rol } from "@/lib/auth";
 import { cerrarSesion } from "./acciones";
@@ -9,17 +10,23 @@ export const metadata: Metadata = {
 };
 
 /*
-  Secciones del panel. Solo /admin existe hoy: las demas llegan en las etapas 6
-  a 10 y se muestran deshabilitadas.
+  Secciones del panel. Las que ya existen llevan ruta y se enlazan; las que
+  faltan se muestran en gris con la etapa en que llegan.
 
   No se pueden enlazar antes de existir porque Next 16 tipa las rutas y un
-  <Link href="/admin/activos"> hacia una ruta inexistente rompe el typecheck.
-  Eso es una ayuda, no un estorbo: obliga a que el menu diga la verdad sobre lo
-  que hay construido.
+  <Link> hacia una ruta inexistente rompe el typecheck. Eso es una ayuda, no un
+  estorbo: obliga a que el menu diga la verdad sobre lo que hay construido.
 */
-const SECCIONES: { nombre: string; etapa: number; roles: Rol[] }[] = [
-  { nombre: "Resumen", etapa: 5, roles: ["admin", "tecnico", "lector"] },
-  { nombre: "Activos", etapa: 6, roles: ["admin", "tecnico", "lector"] },
+type Seccion = {
+  nombre: string;
+  ruta?: "/admin" | "/admin/activos";
+  etapa: number;
+  roles: Rol[];
+};
+
+const SECCIONES: Seccion[] = [
+  { nombre: "Resumen", ruta: "/admin", etapa: 5, roles: ["admin", "tecnico", "lector"] },
+  { nombre: "Activos", ruta: "/admin/activos", etapa: 6, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Mantenciones", etapa: 7, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Repuestos", etapa: 8, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Proveedores", etapa: 8, roles: ["admin", "tecnico", "lector"] },
@@ -70,7 +77,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b-4 border-primario">
+      <header className="border-b-4 border-primario print:hidden">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <p className="text-xs font-bold tracking-widest text-primario uppercase">
@@ -98,13 +105,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             {visibles.map((s) => (
               <li key={s.nombre}>
-                {s.etapa === 5 ? (
-                  <span
-                    aria-current="page"
-                    className="border-b-2 border-primario pb-1 text-sm font-semibold text-gris-900"
+                {s.ruta ? (
+                  <Link
+                    href={s.ruta}
+                    className="pb-1 text-sm font-semibold text-gris-900 hover:text-primario"
                   >
                     {s.nombre}
-                  </span>
+                  </Link>
                 ) : (
                   <span
                     className="pb-1 text-sm font-medium text-gris-400"
