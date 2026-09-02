@@ -109,7 +109,14 @@ Desde la migración `20260902121000` en adelante, el texto completo de cada migr
 
 ### Superficie del rol anon
 
-`anon` puede ejecutar exactamente una función, `get_ficha_publica(uuid, text)`, y no tiene un solo grant de tabla en `public`. Verificable con:
+`anon` puede ejecutar exactamente **dos** funciones y no tiene un solo grant de tabla en `public`:
+
+| Función | Para qué |
+|---|---|
+| `get_ficha_publica(uuid, text)` | La ficha que se abre al escanear el QR |
+| `credenciales_demo()` | El correo y la clave de la cuenta de demostración que `/login` publica |
+
+Verificable con:
 
 ```sql
 select p.proname
@@ -117,7 +124,9 @@ from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute');
 ```
 
-Si esa consulta devuelve más de una fila, algo se expuso sin querer. Postgres otorga `EXECUTE` al pseudo-rol `PUBLIC` en cada función nueva, igual que Supabase expone cada tabla nueva a `anon`, así que una función agregada sin cuidado vuelve a abrir la puerta. Los privilegios por defecto del schema ya están ajustados para que no ocurra.
+Si esa consulta devuelve algo distinto de esas dos, algo se expuso sin querer. Postgres otorga `EXECUTE` al pseudo-rol `PUBLIC` en cada función nueva, igual que Supabase expone cada tabla nueva a `anon`, así que una función agregada sin cuidado vuelve a abrir la puerta. Los privilegios por defecto del schema ya están ajustados para que no ocurra, y por eso cada grant nuevo tiene que ser explícito.
+
+`credenciales_demo()` devuelve una contraseña en texto claro a cualquiera que la invoque, y eso es intencional: su único propósito es que la página la imprima en pantalla. La cuenta que devuelve **tiene que ser de solo lectura**.
 
 ## Identidad visual
 
@@ -190,24 +199,29 @@ Las passwords no están en el repositorio ni en el historial. Viven en un archiv
 
 **El login está publicado en internet.** Las de `admin` y `tecnico` son largas y aleatorias, no `demo1234`, porque esas dos pueden escribir. Si el panel va a tener usuarios reales, lo primero es crear cuentas nominativas y borrar las de demostración.
 
-### El recuadro de acceso público en /login
+### Acceso de demostración
 
-`/login` muestra abajo un recuadro con un correo, una contraseña y un botón que entra sin tipear nada, para que cualquiera pueda recorrer el panel.
+La portada tiene un botón **Ingresar como DEMO** que entra al panel en un clic, y `/login` muestra además un recuadro con el correo y la contraseña en texto, para poder copiarlos o compartirlos por mensaje.
 
-**La cuenta publicada ahí tiene que ser siempre de solo lectura.** Hoy es `lector`, que ve todo y no puede modificar ni borrar nada. Publicar una con permiso de escritura equivale a dejar la base abierta a internet, y desde la Etapa 6 el panel escribe.
+**La cuenta publicada tiene que ser siempre de solo lectura.** Hoy es `lector`, que ve todo y no puede modificar ni borrar nada, verificado en `scripts/verifica-auth.mjs`. Publicar una con permiso de escritura equivale a dejar la base abierta a internet, y desde la Etapa 6 el panel escribe.
 
-Se controla con dos variables de entorno, no desde el código:
+Las credenciales viven en la tabla `acceso_demo`, de una sola fila, y se leen con la función `credenciales_demo()`. No están en el repositorio ni en el historial de git: la migración crea la fila apagada y sin clave, y la clave se carga por SQL.
 
+```sql
+-- Cargar o rotar la clave de la demo
+update public.acceso_demo set password = '...', habilitado = true where id;
+
+-- Apagar la demo. El botón y el recuadro dejan de renderizarse.
+update public.acceso_demo set habilitado = false where id;
 ```
-DEMO_EMAIL=lector@demo.local
-DEMO_PASSWORD=...
-```
 
-Sin el prefijo `NEXT_PUBLIC_` a propósito: se leen en el servidor y se imprimen en el HTML deliberadamente, pero no viajan en el bundle del cliente. Verificable buscando la contraseña en `.next/static/chunks/`: no aparece.
+Ninguna de las dos cosas requiere desplegar.
 
-Si esas dos variables quedan vacías, **el recuadro no se renderiza**. La demo se apaga cambiando una variable en Vercel, sin desplegar nada, y la contraseña se rota igual.
+`DEMO_EMAIL` y `DEMO_PASSWORD` siguen funcionando como sobrescritura, y `DEMO_DESACTIVADO=1` apaga la demo desde el entorno. Van sin el prefijo `NEXT_PUBLIC_`: se leen en el servidor y se imprimen en el HTML deliberadamente, pero no viajan en el bundle del cliente. Verificable buscando la contraseña en `.next/static/chunks/`, donde no aparece.
 
-Hay una tensión con la regla de cero credenciales en el repositorio, que menciona explícitamente las contraseñas de demostración: esta es una credencial cuyo propósito es estar impresa en una página pública, así que no tiene confidencialidad que proteger. Se respeta la regla igual, y el beneficio concreto es poder apagarla o rotarla sin un commit.
+Por qué no se resolvió con una constante en el código, que sería más simple: la regla de cero credenciales en el repositorio menciona explícitamente las contraseñas de demostración. Y por qué no solo con variables de entorno, que sería más limpio: en Vercel hay que cargarlas a mano y redesplegar, y mientras eso no pase la funcionalidad no existe en producción. La tabla la deja operativa desde el primer deploy.
+
+El botón de la portada se renderiza siempre, sin consultar antes si la demo está habilitada, para no convertir una página estática en una consulta a la base por cada visita. Si la demo estuviera apagada, el clic responde que no está disponible.
 
 ### Verificar las políticas por rol
 

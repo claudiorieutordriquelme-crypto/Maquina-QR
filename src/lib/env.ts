@@ -36,27 +36,7 @@ export function urlApp(): string {
 }
 
 /*
-  Cuenta de demostracion que se publica en /login para que cualquiera pueda
-  entrar a mirar.
-
-  Vive en variables de entorno y no en el codigo por la regla de cero
-  credenciales en el repositorio, que menciona explicitamente las contraseñas de
-  demostracion. Hay una tension evidente: es una credencial cuyo proposito es
-  estar impresa en una pagina publica, asi que no tiene confidencialidad que
-  proteger. Igual se respeta la regla, porque el dia que alguien decida rotarla
-  o apagar la demo, se hace en Vercel y no en un commit.
-
-  Sin el prefijo NEXT_PUBLIC_ a proposito: se lee en el servidor, se imprime en
-  el HTML deliberadamente, pero no viaja en el bundle del cliente.
-
-  Debe ser SIEMPRE una cuenta de solo lectura. Publicar una con permiso de
-  escritura equivale a dejar la base abierta a internet.
+  Las credenciales de la cuenta de demostracion no viven aca: viven en la base y
+  se leen en src/lib/datos/demo.ts. Las variables DEMO_EMAIL, DEMO_PASSWORD y
+  DEMO_DESACTIVADO siguen funcionando como sobrescritura y se leen ahi mismo.
 */
-export type CredencialesDemo = { email: string; password: string };
-
-export function credencialesDemo(): CredencialesDemo | null {
-  const email = process.env.DEMO_EMAIL?.trim();
-  const password = process.env.DEMO_PASSWORD?.trim();
-  if (!email || !password) return null;
-  return { email, password };
-}

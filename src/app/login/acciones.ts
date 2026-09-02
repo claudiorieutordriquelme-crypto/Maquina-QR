@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { credencialesDemo } from "@/lib/env";
+import { obtenerCredencialesDemo } from "@/lib/datos/demo";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export type EstadoLogin = { error?: string };
@@ -55,7 +55,7 @@ export async function entrarComoDemo(
   _estadoPrevio: EstadoLogin,
   _datos: FormData,
 ): Promise<EstadoLogin> {
-  const demo = credencialesDemo();
+  const demo = await obtenerCredencialesDemo();
 
   if (!demo) {
     return { error: "El acceso de demostración no está configurado." };

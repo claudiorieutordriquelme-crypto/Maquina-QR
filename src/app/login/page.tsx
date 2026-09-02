@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { credencialesDemo } from "@/lib/env";
+import { obtenerCredencialesDemo } from "@/lib/datos/demo";
 import { FormularioLogin } from "./formulario";
 
 export const metadata: Metadata = {
@@ -34,7 +34,7 @@ export default async function LoginPage({
         variables no estan cargadas, el recuadro simplemente no aparece: la
         demo se apaga sin desplegar nada.
       */}
-      <FormularioLogin volver={volver ?? "/admin"} demo={credencialesDemo()} />
+      <FormularioLogin volver={volver ?? "/admin"} demo={await obtenerCredencialesDemo()} />
     </main>
   );
 }

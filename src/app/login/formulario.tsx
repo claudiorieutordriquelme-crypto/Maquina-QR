@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { entrarComoDemo, iniciarSesion, type EstadoLogin } from "./acciones";
+import { BotonDemo } from "@/components/boton-demo";
+import { iniciarSesion, type EstadoLogin } from "./acciones";
 
 function Alerta({ mensaje }: { mensaje: string }) {
   return (
@@ -24,17 +25,14 @@ function Alerta({ mensaje }: { mensaje: string }) {
 /*
   Recuadro de acceso de demostracion.
 
-  Muestra las credenciales en texto, para que se puedan copiar o compartir por
-  mensaje, y ademas ofrece un boton que entra sin tipear nada. El boton no manda
-  la contraseña en el formulario: la accion la lee del entorno en el servidor.
+  Muestra las credenciales en texto, para poder copiarlas o compartirlas por
+  mensaje, y ofrece el boton que entra sin tipear nada. El boton es el mismo
+  componente que usa la portada.
 
-  La cuenta que se publica aca tiene que ser SIEMPRE de solo lectura. Este login
-  es alcanzable desde internet, asi que publicar una con permiso de escritura
-  equivale a dejar la base abierta.
+  La cuenta que se publica aca tiene que ser SIEMPRE de solo lectura: este login
+  es alcanzable desde internet.
 */
 function AccesoDemo({ email, password }: { email: string; password: string }) {
-  const [estado, accion, pendiente] = useActionState<EstadoLogin, FormData>(entrarComoDemo, {});
-
   return (
     <section className="mt-9 rounded-lg border border-gris-200 p-4">
       <h2 className="text-xs font-bold tracking-widest text-primario uppercase">
@@ -59,21 +57,9 @@ function AccesoDemo({ email, password }: { email: string; password: string }) {
         </div>
       </dl>
 
-      {estado.error ? (
-        <div className="mt-3">
-          <Alerta mensaje={estado.error} />
-        </div>
-      ) : null}
-
-      <form action={accion} className="mt-3">
-        <button
-          type="submit"
-          disabled={pendiente}
-          className="w-full rounded-md border border-primario px-4 py-2.5 text-sm font-semibold text-primario transition-colors hover:bg-primario hover:text-blanco disabled:opacity-60"
-        >
-          {pendiente ? "Entrando..." : "Entrar con la cuenta de demostración"}
-        </button>
-      </form>
+      <div className="mt-3">
+        <BotonDemo variante="secundario" etiqueta="Ingresar como DEMO" />
+      </div>
     </section>
   );
 }
