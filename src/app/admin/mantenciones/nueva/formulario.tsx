@@ -66,12 +66,30 @@ export function FormularioOrden({
   activos,
   planes,
   proveedores,
+  activoInicial,
+  planInicial,
 }: {
   activos: OpcionActivo[];
   planes: OpcionPlan[];
   proveedores: { id: string; nombre: string }[];
+  /*
+    Vienen de la tabla por criticidad del resumen, en la direccion. Ese atajo es
+    lo que hace util esa lista: de "este plan esta vencido" a "registrando la
+    mantencion" en un clic, sin volver a buscar la maquina en un desplegable de
+    cuarenta. Se validan contra las opciones reales antes de preseleccionar,
+    porque un id inventado en la URL dejaria el select en un valor que no
+    existe y el formulario no se podria enviar.
+  */
+  activoInicial?: string;
+  planInicial?: string;
 }) {
   const [estado, accion, pendiente] = useActionState<EstadoAccion, FormData>(crearOrden, {});
+
+  const activoValido = activos.some((a) => a.id === activoInicial) ? activoInicial : "";
+  const planValido =
+    activoValido && planes.some((p) => p.id === planInicial && p.activo_id === activoValido)
+      ? planInicial
+      : "";
 
   return (
     <form action={accion} className="space-y-7">
@@ -87,7 +105,7 @@ export function FormularioOrden({
               id="activo_id"
               name="activo_id"
               required
-              defaultValue=""
+              defaultValue={activoValido}
               className="mt-1.5 w-full rounded-md border border-gris-300 px-3 py-2.5 text-base text-gris-900"
             >
               <option value="" disabled>
@@ -106,7 +124,7 @@ export function FormularioOrden({
             <select
               id="plan_id"
               name="plan_id"
-              defaultValue=""
+              defaultValue={planValido}
               className="mt-1.5 w-full rounded-md border border-gris-300 px-3 py-2.5 text-base text-gris-900"
             >
               <option value="">Sin plan (correctiva no planificada)</option>

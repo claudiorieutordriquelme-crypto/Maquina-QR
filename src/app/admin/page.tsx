@@ -1,5 +1,7 @@
 import { GlifoSemaforo } from "@/components/glifo-semaforo";
-import { DESCRIPCION_ROL, ETIQUETA_ROL, perfilHabilitado } from "@/lib/auth";
+import { TablaCriticidad } from "@/components/tabla-criticidad";
+import { listarPorCriticidad } from "@/lib/datos/reportes";
+import { DESCRIPCION_ROL, ETIQUETA_ROL, PERMISOS, perfilHabilitado } from "@/lib/auth";
 import { PRESENTACION_SEMAFORO } from "@/lib/formato";
 import { crearClienteServidor } from "@/lib/supabase/server";
 import type { Semaforo } from "@/lib/tipos";
@@ -96,8 +98,12 @@ function Tarjeta({ estado, cantidad }: { estado: Semaforo; cantidad: number }) {
 export default async function AdminPage() {
   // Segunda verificacion de rol, despues de la del layout. Es a proposito: esta
   // pagina podria ser alcanzada por un camino que no pase por el layout.
-  const perfil = await perfilHabilitado();
-  const conteos = await cargarConteos();
+  const [perfil, conteos, criticidad] = await Promise.all([
+    perfilHabilitado(),
+    cargarConteos(),
+    listarPorCriticidad(),
+  ]);
+  const puedeOperar = perfil ? PERMISOS.operar.includes(perfil.rol) : false;
 
   return (
     <div className="space-y-8">
@@ -146,6 +152,27 @@ export default async function AdminPage() {
               </p>
             ) : null}
           </>
+        )}
+      </section>
+
+      {/*
+        La tabla va inmediatamente despues del semaforo, porque es la respuesta a
+        la pregunta que dejan las tarjetas: cuales son.
+      */}
+      <section className="space-y-3" data-tour="resumen-criticidad">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
+            Qué atender primero
+          </h2>
+          <p className="text-sm text-gris-600">Ordenado por criticidad y por plazo</p>
+        </div>
+
+        {criticidad.error ? (
+          <p role="alert" className="rounded-md border border-acento p-4 text-sm font-medium text-gris-900">
+            No pude leer el estado de los planes. Avisa a quien administra el sistema.
+          </p>
+        ) : (
+          <TablaCriticidad filas={criticidad.filas} puedeOperar={puedeOperar} />
         )}
       </section>
 

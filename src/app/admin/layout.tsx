@@ -37,7 +37,19 @@ const SECCIONES: Seccion[] = [
     etapa: 8,
     roles: ["admin", "tecnico", "lector"],
   },
-  { nombre: "Reportes", etapa: 9, roles: ["admin", "lector"] },
+  {
+    nombre: "Reportes",
+    ruta: "/admin/reportes",
+    etapa: 9,
+    /*
+      Tambien el tecnico. Es el que escribe los montos de mano de obra y de
+      factura en cada orden, asi que esconderle el agregado no protegia nada:
+      la base no filtra costos entre roles internos, solo hacia la ficha
+      publica. Un enlace escondido sobre datos que el rol si puede leer es una
+      molestia, no un control.
+    */
+    roles: ["admin", "tecnico", "lector"],
+  },
   { nombre: "Configuración", etapa: 10, roles: ["admin"] },
 ];
 

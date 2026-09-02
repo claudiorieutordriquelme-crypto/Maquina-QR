@@ -10,7 +10,12 @@ import { FormularioOrden } from "./formulario";
 
 export const dynamic = "force-dynamic";
 
-export default async function NuevaMantencionPage() {
+export default async function NuevaMantencionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ activo?: string; plan?: string }>;
+}) {
+  const { activo, plan } = await searchParams;
   const perfil = await perfilHabilitado();
   if (!perfil) redirect("/login");
   if (!PERMISOS.operar.includes(perfil.rol)) redirect("/admin/mantenciones");
@@ -45,7 +50,13 @@ export default async function NuevaMantencionPage() {
           mantención.
         </p>
       ) : (
-        <FormularioOrden activos={activos} planes={planes} proveedores={proveedores} />
+        <FormularioOrden
+          activos={activos}
+          planes={planes}
+          proveedores={proveedores}
+          activoInicial={activo}
+          planInicial={plan}
+        />
       )}
     </div>
   );
