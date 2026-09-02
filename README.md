@@ -135,7 +135,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | 2 | Migraciones, RLS, buckets de Storage, seed | Migraciones listas y verificadas. Seed pendiente |
 | 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Objetos recuperados y verificados. Tests pgTAP pendientes |
 | 4 | Ficha pública `/a/[token]` | Listo |
-| 5 | Auth y layout del panel privado | Pendiente |
+| 5 | Auth y layout del panel privado | Listo |
 | 6 | CRUD de activos e impresión de etiquetas QR | Pendiente |
 | 7 | CRUD de mantenciones | Pendiente |
 | 8 | Maestros de repuestos y proveedores | Pendiente |
@@ -173,6 +173,34 @@ Con las dos primeras la ficha pública ya funciona. Las otras dos se cargan cuan
 `NEXT_PUBLIC_APP_URL` es la base de todos los QR impresos. Si el dominio cambia después de imprimir una flota, las etiquetas quedan apuntando al dominio viejo y hay que reimprimirlas una por una. El dominio definitivo se decide antes de habilitar la impresión masiva de la Etapa 6, no después.
 
 Hoy el dominio de producción es `https://maquina-qr.vercel.app`. Si en algún momento se conecta un dominio propio, hay que decidirlo **antes** de imprimir, porque Vercel mantiene el `.vercel.app` funcionando pero las etiquetas quedarían apuntando a una URL que no es la institucional.
+
+## Panel privado
+
+`/login` y `/admin` están en producción. Tres capas, con responsabilidades distintas y sin superposición:
+
+1. **`src/proxy.ts`** refresca la cookie de sesión y hace un chequeo optimista que redirige a `/login`. Es comodidad de navegación, **no** autorización.
+2. **`src/lib/auth.ts`** valida la sesión con `getUser()`, que contrasta el token contra el servidor de Auth, y expone `requiereRol()` para usar dentro de cada Server Action.
+3. **Las políticas RLS** son la última palabra. Si las dos capas anteriores fallaran, la base sigue rechazando.
+
+El matcher del proxy excluye `/a/`, la ficha pública, para no agregarle una validación de token en cada escaneo. Eso es seguro **solo** porque esa ruta no invoca ninguna Server Function: si algún día se le agrega una, hay que sacar la exclusión, porque el matcher también la excluiría a ella.
+
+### Cuentas de demostración
+
+Las passwords no están en el repositorio ni en el historial. Viven en un archivo fuera del árbol, por defecto `~/maquina-qr-credenciales-demo.txt`, una línea por cuenta con "correo password".
+
+**El login está publicado en internet**, así que las passwords de demostración son largas y aleatorias, no `demo1234`. Si el panel va a tener usuarios reales, lo primero es rotarlas y crear cuentas nominativas.
+
+### Verificar las políticas por rol
+
+```bash
+node scripts/verifica-auth.mjs
+```
+
+Inicia sesión de verdad con cada cuenta y comprueba lo que cada rol puede y no puede hacer. Las pruebas que importan son las negativas: que un botón esté oculto no prueba nada.
+
+Una trampa que conviene conocer antes de escribir más pruebas de RLS: **un UPDATE o un DELETE cuyo filtro no calza con ninguna fila devuelve 204 aunque la política lo bloquee**, porque RLS filtra las filas afectadas y no queda ninguna. Probar con un id inexistente no mide nada. Hay que usar filas reales y la cabecera `Prefer: return=representation`, que devuelve las filas efectivamente modificadas: arreglo vacío significa bloqueado.
+
+El borrado no se prueba por comportamiento, porque la única prueba concluyente sería destructiva. Se verifica estructuralmente: si una tabla no tiene política de `DELETE` ni de `ALL`, nadie borra. `movimientos_stock` no tiene ninguna de las dos, y de ahí sale que sea append only incluso para el administrador.
 
 ## Verificado en producción
 
