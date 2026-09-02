@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { obtenerCredencialesDemo } from "@/lib/datos/demo";
+import { LogoCliente } from "@/components/logo-cliente";
 import { FormularioLogin } from "./formulario";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default async function LoginPage({
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-16">
       <div className="border-b-4 border-primario pb-5">
+        <LogoCliente className="mb-3 h-14 w-20" />
         <p className="text-xs font-bold tracking-widest text-primario uppercase">
           Mantención de maquinaria
         </p>

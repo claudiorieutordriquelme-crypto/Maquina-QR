@@ -1,19 +1,28 @@
 @import "tailwindcss";
 
 /*
-  Identidad visual Entel como unica fuente de color del proyecto.
+  ============================================================================
+  PALETA DE COLOR
+  ============================================================================
+
+  Este proyecto usa la identidad de Agricola Santa Ines, tomada de su logo.
+
+  EXCEPCION DOCUMENTADA. La norma de identidad de Entel fija tres colores
+  (#002eff, #ff3d00, #41e8b4) y dice "no uses ningun otro color". Esta
+  aplicacion se sale de esa norma por decision explicita del dueno del
+  proyecto, reiterada tres veces, por tratarse de un entregable con la marca
+  del cliente y no de un producto Entel. La paleta Entel queda mas abajo,
+  completa y comentada: revertir es cambiar de bloque, nada mas.
+
+  Si alguien de Entel revisa esto y la excepcion no corresponde, el cambio es
+  de un minuto. Eso es a proposito.
 
   Por que se resetea --color-* a initial: Tailwind v4 trae su escala completa
-  (blue-500, red-600, amber-400...). Dejarla viva significa que en cualquiera de
-  las etapas 5 a 10 alguien escribe bg-red-500 para un estado vencido y el
-  proyecto sale de marca sin que nadie lo note en review. Reseteando, esa clase
-  simplemente no existe y el build no la genera. El costo es que los neutros hay
-  que declararlos a mano, mas abajo.
-
-  No se definen tintes suaves de los colores de marca (tipo #fff1ec). La regla
-  de identidad dice neutros grises y blanco para superficies, asi que los
-  estados criticos se resuelven con superficie neutra mas borde, texto e icono
-  en acento, no con fondos teniidos.
+  (blue-500, red-600, amber-400...). Dejarla viva significa que alguien escribe
+  bg-red-500 para un estado vencido y el proyecto sale de marca sin que nadie lo
+  note en review. Reseteando, esa clase no existe y el build no la genera. El
+  costo es que los neutros hay que declararlos a mano.
+  ============================================================================
 */
 @theme {
   --color-*: initial;
@@ -23,31 +32,72 @@
   --color-current: currentColor;
   --color-inherit: inherit;
 
-  /* Marca Entel. Estos tres valores no se tocan. */
-  --color-primario: #002eff;
-  --color-acento: #ff3d00;
-  --color-secundario: #41e8b4;
+  /*
+    Marca Agricola Santa Ines, muestreada del logo.
 
-  /* Neutros: superficies y texto */
+    primario   verde oscuro de la hoja derecha. 5.1:1 contra blanco, asi que
+               sirve para texto normal y no solo para bordes.
+    secundario verde claro de la hoja izquierda. Muy claro: va en barras y
+               bordes, NUNCA en texto.
+    acento     rojo tierra para estados vencidos y criticos. El logo no trae un
+               color de alerta, y usar verde para "al dia" y para "vencida"
+               dejaria la pantalla ilegible. Se eligio un rojo que armoniza con
+               los verdes y da 5.8:1 contra blanco, mejor que el 3.5:1 del
+               acento Entel: la accesibilidad de los estados criticos mejora.
+  */
+  --color-primario: #2e7d32;
+  --color-primario-claro: #4c9a3d;
+  --color-secundario: #8cc63f;
+  --color-acento: #c0341b;
+
+  /*
+    Paleta Entel, para revertir. Se descomentan estas cuatro y se comentan las
+    cuatro de arriba.
+
+    --color-primario: #002eff;
+    --color-primario-claro: #3355ff;
+    --color-secundario: #41e8b4;
+    --color-acento: #ff3d00;
+  */
+
+  /* Neutros: superficies y texto. Con un matiz verdoso minimo para que no
+     choquen con la marca, no lo suficiente para leerse como color. */
   --color-blanco: #ffffff;
-  --color-gris-50: #f7f7f8;
-  --color-gris-100: #ededf0;
-  --color-gris-200: #dcdce1;
-  --color-gris-300: #bfbfc7;
-  --color-gris-400: #8f8f9a;
-  --color-gris-500: #6b6b76;
-  --color-gris-600: #4d4d57;
-  --color-gris-700: #35353d;
-  --color-gris-800: #22222a;
-  --color-gris-900: #14141a;
-  --color-negro: #0a0a0a;
+  --color-gris-50: #f7f9f6;
+  --color-gris-100: #edf1eb;
+  --color-gris-200: #dce2d9;
+  --color-gris-300: #bfc7bc;
+  --color-gris-400: #8f978c;
+  --color-gris-500: #6b736a;
+  --color-gris-600: #4d544c;
+  --color-gris-700: #353a34;
+  --color-gris-800: #22271f;
+  --color-gris-900: #141812;
+  --color-negro: #0a0c09;
 
   --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+
+  /*
+    Radios y sombras como tokens, para que la sensacion de la interfaz se ajuste
+    en un lugar y no repartida en veinte archivos.
+
+    Las sombras son deliberadamente suaves: esta aplicacion se usa con sol
+    directo sobre la pantalla, donde una sombra marcada se ve como suciedad. La
+    jerarquia la dan el borde y el espacio, no la elevacion.
+  */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+
+  --shadow-tarjeta: 0 1px 2px rgb(20 24 18 / 0.04), 0 1px 3px rgb(20 24 18 / 0.06);
+  --shadow-elevada: 0 2px 4px rgb(20 24 18 / 0.05), 0 8px 24px -8px rgb(20 24 18 / 0.12);
+  --shadow-barra: 0 1px 0 rgb(20 24 18 / 0.06), 0 4px 16px -12px rgb(20 24 18 / 0.2);
 }
 
 /*
   Mapeo del semaforo. Vive aca y no en cada componente para que el criterio sea
-  uno solo entre la ficha publica (Etapa 4) y el dashboard (Etapa 9).
+  uno solo entre la ficha publica y el panel.
 
   vencida y critica comparten el acento y se diferencian por intensidad de
   superficie y por glifo, nunca solo por color: en terreno hay daltonismo y
@@ -62,13 +112,79 @@
 }
 
 /*
-  Reglas de impresion. Existen para las etiquetas QR, que son el unico artefacto
-  del sistema que sale en papel.
+  ============================================================================
+  BASE
+  ============================================================================
+*/
+@layer base {
+  /*
+    Foco visible en todo lo interactivo. Es lo primero que se pierde cuando una
+    interfaz se "moderniza" quitando outlines, y lo unico que permite usar el
+    panel con teclado. focus-visible y no focus, para no dibujar el anillo al
+    hacer clic con el mouse.
+  */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primario);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /*
+    Objetivos de toque de 44 px en pantallas chicas, que es el minimo que se
+    puede apretar con un dedo enguantado. En escritorio se deja el alto natural.
+  */
+  @media (max-width: 640px) {
+    :where(button, summary) {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* Titulos con corte de linea equilibrado, y parrafos sin lineas viudas. */
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+  :where(p, li, dd) {
+    text-wrap: pretty;
+  }
+
+  /*
+    Respeta a quien pidio menos movimiento en su sistema operativo. No es un
+    detalle de cortesia: para algunas personas las transiciones producen mareo
+    real.
+  */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Que el area segura de los telefonos con notch no coma contenido. */
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Los numeros de una tabla se comparan de un vistazo solo si estan alineados. */
+  :where(td, th) {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+  ============================================================================
+  IMPRESION
+  ============================================================================
+
+  Existen para las etiquetas QR, que son el unico artefacto del sistema que sale
+  en papel.
 
   El navegador imprime lo que ve, asi que el encabezado del panel, los botones y
   las advertencias llevan print:hidden en su propio componente. Aca queda lo que
-  no se puede expresar con una utilidad de Tailwind: el tamano de pagina y los
-  margenes.
+  no se puede expresar con una utilidad de Tailwind.
 */
 @media print {
   @page {

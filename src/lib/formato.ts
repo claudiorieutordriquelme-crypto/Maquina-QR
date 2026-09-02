@@ -105,14 +105,15 @@ export const ETIQUETA_TIPO_MANTENCION: Record<TipoMantencion, string> = {
   por el sol, y ahi el color es lo primero que se pierde.
 
   Sobre los colores elegidos, con los contrastes medidos contra blanco:
-  - El acento #ff3d00 da 3.5:1, que alcanza para bordes y glifos grandes
-    (umbral 3:1) pero no para texto normal (umbral 4.5:1). Por eso el acento
-    nunca lleva el texto: va en la barra, el borde y el glifo.
-  - El secundario #41e8b4 es todavia mas claro y como texto es ilegible. Misma
-    regla: color en la barra y el borde, texto en gris oscuro.
-  - La insignia de vencida usa texto negro sobre acento, que da 5.4:1 y pasa AA.
-    Blanco sobre acento se ve mas convencional pero queda en 3.5:1, y esta
-    pantalla se lee con sol encima.
+  - El acento #c0341b da 5.8:1, asi que pasa AA para texto normal. Con el acento
+    Entel anterior (#ff3d00, 3.5:1) esto no se podia: la insignia de vencida
+    tenia que llevar texto negro para alcanzar contraste. Con el rojo tierra del
+    cliente, blanco sobre acento queda en 5.8:1, que es legible y ademas la
+    convencion que la gente espera de una alerta.
+  - El secundario #8cc63f es un verde claro y como texto es ilegible: 2.1:1.
+    Regla firme, color en la barra y el borde, texto en gris oscuro.
+  - El primario #2e7d32 da 5.1:1, asi que si sirve para texto y no solo para
+    bordes, que es lo que permite usarlo en enlaces.
 */
 export type PresentacionSemaforo = {
   etiqueta: string;
@@ -128,7 +129,7 @@ export const PRESENTACION_SEMAFORO: Record<Semaforo, PresentacionSemaforo> = {
     etiqueta: "Vencida",
     glifo: "vencida",
     barra: "bg-acento",
-    insignia: "bg-acento text-negro",
+    insignia: "bg-acento text-blanco",
     destaca: true,
   },
   critica: {

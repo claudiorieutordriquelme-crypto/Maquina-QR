@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ETIQUETA_ROL, obtenerContexto, type Rol } from "@/lib/auth";
+import { LogoCliente } from "@/components/logo-cliente";
 import { cerrarSesion } from "./acciones";
+import { NavPanel, type ItemNav } from "./nav";
 
 export const metadata: Metadata = {
   title: "Panel · Máquina QR",
@@ -11,25 +12,30 @@ export const metadata: Metadata = {
 
 /*
   Secciones del panel. Las que ya existen llevan ruta y se enlazan; las que
-  faltan se muestran en gris con la etapa en que llegan.
+  faltan van al final, en gris y con la etapa en que llegan.
 
   No se pueden enlazar antes de existir porque Next 16 tipa las rutas y un
   <Link> hacia una ruta inexistente rompe el typecheck. Eso es una ayuda, no un
   estorbo: obliga a que el menu diga la verdad sobre lo que hay construido.
 */
-type Seccion = {
-  nombre: string;
-  ruta?: "/admin" | "/admin/activos" | "/admin/mantenciones" | "/admin/repuestos" | "/admin/proveedores";
-  etapa: number;
-  roles: Rol[];
-};
+type Seccion = ItemNav & { roles: Rol[] };
 
 const SECCIONES: Seccion[] = [
   { nombre: "Resumen", ruta: "/admin", etapa: 5, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Activos", ruta: "/admin/activos", etapa: 6, roles: ["admin", "tecnico", "lector"] },
-  { nombre: "Mantenciones", ruta: "/admin/mantenciones", etapa: 7, roles: ["admin", "tecnico", "lector"] },
+  {
+    nombre: "Mantenciones",
+    ruta: "/admin/mantenciones",
+    etapa: 7,
+    roles: ["admin", "tecnico", "lector"],
+  },
   { nombre: "Repuestos", ruta: "/admin/repuestos", etapa: 8, roles: ["admin", "tecnico", "lector"] },
-  { nombre: "Proveedores", ruta: "/admin/proveedores", etapa: 8, roles: ["admin", "tecnico", "lector"] },
+  {
+    nombre: "Proveedores",
+    ruta: "/admin/proveedores",
+    etapa: 8,
+    roles: ["admin", "tecnico", "lector"],
+  },
   { nombre: "Reportes", etapa: 9, roles: ["admin", "lector"] },
   { nombre: "Configuración", etapa: 10, roles: ["admin"] },
 ];
@@ -37,12 +43,13 @@ const SECCIONES: Seccion[] = [
 function SinAcceso({ motivo }: { motivo: string }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-16">
+      <LogoCliente className="mb-6 h-20 w-28" conTexto />
       <h1 className="text-2xl font-bold text-gris-900">Sin acceso al panel</h1>
       <p className="mt-3 text-base text-gris-600">{motivo}</p>
       <form action={cerrarSesion} className="mt-7">
         <button
           type="submit"
-          className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800"
+          className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500"
         >
           Cerrar sesión
         </button>
@@ -62,10 +69,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     Con sesion pero sin perfil utilizable no se redirige a /login: el proxy veria
     la sesion ahi y devolveria a /admin, en bucle. Se muestra el estado y la
     salida.
+
+    Este mensaje tambien sale cuando falla la lectura de la tabla de perfiles.
+    Si la persona esta segura de tener perfil, el problema no es de asignacion
+    sino de lectura, y hay que mirar el registro del servidor.
   */
   if (!perfil) {
     return (
-      <SinAcceso motivo="Tu cuenta existe pero no tiene un perfil asociado. Pide a un administrador que te asigne uno." />
+      <SinAcceso motivo="Tu cuenta existe pero no tiene un perfil asociado, o el sistema no pudo leerlo. Pide a un administrador que lo revise." />
     );
   }
 
@@ -76,60 +87,58 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const visibles = SECCIONES.filter((s) => s.roles.includes(perfil.rol));
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b-4 border-primario print:hidden">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <div>
-            <p className="text-xs font-bold tracking-widest text-primario uppercase">
-              Máquina QR
-            </p>
-            <p className="mt-0.5 text-base font-semibold text-gris-900">
-              {/* Con perfil sin nombre ni correo, la linea quedaba vacia y solo
-                  se veia la etiqueta del rol. */}
-              {perfil.nombre || perfil.email || "Sin nombre registrado"}
-              <span className="ml-2 rounded border border-gris-300 px-1.5 py-0.5 align-middle text-xs font-semibold text-gris-600">
-                {ETIQUETA_ROL[perfil.rol]}
-              </span>
-            </p>
+    <div className="min-h-dvh bg-gris-50">
+      {/*
+        El encabezado queda fijo arriba. En listados largos, como el libro de
+        movimientos o una flota de cuarenta maquinas, perder la navegacion al
+        bajar obliga a subir hasta el tope para cambiar de seccion. El fondo va
+        translucido con blur para que se note que hay contenido debajo.
+      */}
+      <header className="sticky top-0 z-20 border-b border-gris-200 bg-blanco/90 shadow-barra backdrop-blur print:hidden">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <LogoCliente className="h-10 w-14 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold tracking-widest text-primario uppercase">
+                Máquina QR
+              </p>
+              <p className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold text-gris-900">
+                {/* Con perfil sin nombre ni correo, la linea quedaba vacia y
+                    solo se veia la etiqueta del rol. */}
+                <span className="truncate">
+                  {perfil.nombre || perfil.email || "Sin nombre registrado"}
+                </span>
+                <span className="rounded border border-gris-300 px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap text-gris-600">
+                  {ETIQUETA_ROL[perfil.rol]}
+                </span>
+              </p>
+            </div>
           </div>
 
           <form action={cerrarSesion}>
             <button
               type="submit"
-              className="rounded-md border border-gris-300 px-3 py-2 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500"
+              className="rounded-md border border-gris-300 px-3 py-2 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500 hover:text-gris-900"
             >
               Cerrar sesión
             </button>
           </form>
         </div>
 
-        <nav aria-label="Secciones del panel" className="mx-auto max-w-5xl px-5 pb-3">
-          <ul className="flex flex-wrap gap-x-5 gap-y-2">
-            {visibles.map((s) => (
-              <li key={s.nombre}>
-                {s.ruta ? (
-                  <Link
-                    href={s.ruta}
-                    className="pb-1 text-sm font-semibold text-gris-900 hover:text-primario"
-                  >
-                    {s.nombre}
-                  </Link>
-                ) : (
-                  /* El aviso iba en un title, que solo existe con mouse: en
-                     telefono y con teclado no habia forma de verlo, y el panel
-                     se usa en terreno desde el celular. Ahora es texto. */
-                  <span className="inline-flex items-baseline gap-1 pb-1 text-sm font-medium text-gris-400">
-                    {s.nombre}
-                    <span className="text-xs">(en construcción)</span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <NavPanel items={visibles} />
       </header>
 
-      <div className="mx-auto max-w-5xl px-5 py-7">{children}</div>
+      {/*
+        El contenido va sobre una tarjeta blanca con el fondo gris detras. Da
+        limite visual al area de trabajo sin depender de sombras marcadas, que
+        con sol directo sobre la pantalla se ven como suciedad. Al imprimir se
+        desarma para no gastar tinta en bordes.
+      */}
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-5 sm:py-7">
+        <div className="rounded-xl border border-gris-200 bg-blanco p-4 shadow-tarjeta sm:p-6 print:rounded-none print:border-0 print:p-0 print:shadow-none">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

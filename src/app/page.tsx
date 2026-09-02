@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BotonDemo } from "@/components/boton-demo";
+import { LogoCliente } from "@/components/logo-cliente";
 
 /*
   Landing minima.
@@ -18,6 +19,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 px-6 py-16">
       <div className="space-y-3">
+        <LogoCliente className="mb-2 h-16 w-24" />
         <p className="text-sm font-semibold tracking-widest text-primario uppercase">
           Mantención de maquinaria
         </p>
