@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { credencialesDemo } from "@/lib/env";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
 export type EstadoLogin = { error?: string };
@@ -40,4 +41,33 @@ export async function iniciarSesion(
   }
 
   redirect(destinoSeguro(datos.get("volver")));
+}
+
+/*
+  Entrada directa con la cuenta de demostracion, para no obligar a nadie a
+  copiar y tipear una contraseña en un telefono.
+
+  Las credenciales se leen en el servidor y no llegan desde el formulario: si
+  vinieran en campos ocultos, cualquiera podria cambiarlas por otras y usar
+  esta accion como un segundo login sin el mensaje de error generico.
+*/
+export async function entrarComoDemo(
+  _estadoPrevio: EstadoLogin,
+  _datos: FormData,
+): Promise<EstadoLogin> {
+  const demo = credencialesDemo();
+
+  if (!demo) {
+    return { error: "El acceso de demostración no está configurado." };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.auth.signInWithPassword(demo);
+
+  if (error) {
+    console.error("Fallo el acceso de demostración:", error.message);
+    return { error: "El acceso de demostración no está disponible por ahora." };
+  }
+
+  redirect("/admin");
 }

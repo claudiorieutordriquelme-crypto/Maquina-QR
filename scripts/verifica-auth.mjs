@@ -71,8 +71,12 @@ try {
     .split(/\r?\n/)
     .filter((l) => /\S+@\S+\s+\S+/.test(l))
     .map((l) => {
-      const [email, ...resto] = l.trim().split(/\s+/);
-      return { email, password: resto.join("") };
+      // Solo el primer token despues del correo. Antes se unian todos los
+      // restantes, y un comentario al final de la linea terminaba pegado dentro
+      // de la contraseña, con el resultado de un "Invalid login credentials"
+      // que parecia un problema de la base y era del parser.
+      const [email, password] = l.trim().split(/\s+/);
+      return { email, password };
     });
 } catch {
   console.error(`No pude leer las credenciales de prueba en ${rutaCredenciales}.`);

@@ -186,9 +186,28 @@ El matcher del proxy excluye `/a/`, la ficha pública, para no agregarle una val
 
 ### Cuentas de demostración
 
-Las passwords no están en el repositorio ni en el historial. Viven en un archivo fuera del árbol, por defecto `~/maquina-qr-credenciales-demo.txt`, una línea por cuenta con "correo password".
+Las passwords no están en el repositorio ni en el historial. Viven en un archivo fuera del árbol, por defecto `~/maquina-qr-credenciales-demo.txt`, una línea por cuenta con "correo password", el password en el primer token.
 
-**El login está publicado en internet**, así que las passwords de demostración son largas y aleatorias, no `demo1234`. Si el panel va a tener usuarios reales, lo primero es rotarlas y crear cuentas nominativas.
+**El login está publicado en internet.** Las de `admin` y `tecnico` son largas y aleatorias, no `demo1234`, porque esas dos pueden escribir. Si el panel va a tener usuarios reales, lo primero es crear cuentas nominativas y borrar las de demostración.
+
+### El recuadro de acceso público en /login
+
+`/login` muestra abajo un recuadro con un correo, una contraseña y un botón que entra sin tipear nada, para que cualquiera pueda recorrer el panel.
+
+**La cuenta publicada ahí tiene que ser siempre de solo lectura.** Hoy es `lector`, que ve todo y no puede modificar ni borrar nada. Publicar una con permiso de escritura equivale a dejar la base abierta a internet, y desde la Etapa 6 el panel escribe.
+
+Se controla con dos variables de entorno, no desde el código:
+
+```
+DEMO_EMAIL=lector@demo.local
+DEMO_PASSWORD=...
+```
+
+Sin el prefijo `NEXT_PUBLIC_` a propósito: se leen en el servidor y se imprimen en el HTML deliberadamente, pero no viajan en el bundle del cliente. Verificable buscando la contraseña en `.next/static/chunks/`: no aparece.
+
+Si esas dos variables quedan vacías, **el recuadro no se renderiza**. La demo se apaga cambiando una variable en Vercel, sin desplegar nada, y la contraseña se rota igual.
+
+Hay una tensión con la regla de cero credenciales en el repositorio, que menciona explícitamente las contraseñas de demostración: esta es una credencial cuyo propósito es estar impresa en una página pública, así que no tiene confidencialidad que proteger. Se respeta la regla igual, y el beneficio concreto es poder apagarla o rotarla sin un commit.
 
 ### Verificar las políticas por rol
 
