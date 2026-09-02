@@ -57,7 +57,38 @@ El proyecto Supabase de producción es `pnxnvorvuvkodutwordo` (región `sa-east-
 
 La red corporativa bloquea la salida a los puertos 5432 y 6543, así que `supabase db push` falla con `Connection timed out`. El único transporte disponible hacia esa base es HTTPS por la Management API.
 
-Cómo correr migraciones y tests: pendiente de documentar al cerrar la recuperación del schema.
+### Correr SQL contra la base
+
+```bash
+# El token va en un archivo fuera del repo, nunca versionado
+echo "sbp_..." > ~/.supabase_token
+
+node scripts/sql-remoto.mjs consulta.sql          # tabla legible
+node scripts/sql-remoto.mjs consulta.sql --json   # JSON crudo
+node scripts/sql-remoto.mjs consulta.sql --raw    # primera columna, para volcar DDL
+```
+
+El script intenta `fetch` y cae a `curl` solo ante error de certificado, porque el proxy de inspección de la red re-firma el tráfico a `api.supabase.com` y Node 20 no lee el almacén de certificados de Windows. No desactiva la validación TLS en ningún caso.
+
+Para probar una migración sin aplicarla se la envuelve en `begin; ... rollback;`. Para verificar que corre desde base vacía se crea un schema desechable y se reemplaza el prefijo `public.`. Así se validaron las nueve migraciones actuales.
+
+### Recuperación del schema
+
+Los archivos de migración originales se perdieron antes de llegar al repositorio. El registro `supabase_migrations.schema_migrations` conservó el nombre y el orden de las ocho migraciones, pero con el arreglo `statements` vacío, así que el texto SQL hubo que reconstruirlo desde el catálogo de la base viva. Las definiciones de funciones, vistas, triggers, constraints e índices son textuales; las sentencias `create table` se rearmaron desde `pg_attribute`.
+
+Desde la migración `20260902121000` en adelante, el texto completo de cada migración queda registrado en `statements` al aplicarla. Esa pérdida no puede repetirse.
+
+### Superficie del rol anon
+
+`anon` puede ejecutar exactamente una función, `get_ficha_publica(uuid, text)`, y no tiene un solo grant de tabla en `public`. Verificable con:
+
+```sql
+select p.proname
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute');
+```
+
+Si esa consulta devuelve más de una fila, algo se expuso sin querer. Postgres otorga `EXECUTE` al pseudo-rol `PUBLIC` en cada función nueva, igual que Supabase expone cada tabla nueva a `anon`, así que una función agregada sin cuidado vuelve a abrir la puerta. Los privilegios por defecto del schema ya están ajustados para que no ocurra.
 
 ## Identidad visual
 
@@ -72,8 +103,8 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | Etapa | Alcance | Estado |
 |---|---|---|
 | 1 | Scaffold Next.js, Tailwind v4, Barlow, paleta Entel | Listo |
-| 2 | Migraciones, RLS, buckets de Storage, seed | Pendiente |
-| 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Pendiente |
+| 2 | Migraciones, RLS, buckets de Storage, seed | Migraciones listas y verificadas. Seed pendiente |
+| 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Objetos recuperados y verificados. Tests pgTAP pendientes |
 | 4 | Ficha pública `/a/[token]` | Pendiente |
 | 5 | Auth y layout del panel privado | Pendiente |
 | 6 | CRUD de activos e impresión de etiquetas QR | Pendiente |
