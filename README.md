@@ -145,7 +145,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Objetos recuperados y verificados. Tests pgTAP pendientes |
 | 4 | Ficha pública `/a/[token]` | Listo |
 | 5 | Auth y layout del panel privado | Listo |
-| 6 | CRUD de activos e impresión de etiquetas QR | Listado, alta e impresión listos. Ficha de detalle pendiente |
+| 6 | CRUD de activos e impresión de etiquetas QR | Listo |
 | 7 | CRUD de mantenciones | Listo |
 | 8 | Maestros de repuestos y proveedores | Listo |
 | 9 | Dashboard y reportes | Pendiente |

@@ -219,8 +219,11 @@ export default async function ActivosPage({
                   </dl>
 
                   <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold">
+                    <Link href={`/admin/activos/${a.id}`} className="text-primario hover:underline">
+                      Ver y editar
+                    </Link>
                     <Link href={`/admin/activos/${a.id}/qr`} className="text-primario hover:underline">
-                      Ver etiqueta QR
+                      Etiqueta QR
                     </Link>
                     <a
                       href={`/a/${a.qr_token}`}

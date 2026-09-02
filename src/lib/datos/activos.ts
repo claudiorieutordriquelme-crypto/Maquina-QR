@@ -164,3 +164,109 @@ export async function listarParaEtiquetas(ids?: string[]): Promise<
   }
   return data ?? [];
 }
+
+export type PlanDeActivo = {
+  id: string;
+  nombre: string;
+  intervalo_dias: number | null;
+  intervalo_horas: number | null;
+  descripcion_tareas: string | null;
+  activo: boolean;
+  semaforo: Semaforo | null;
+  proxima_fecha: string | null;
+  dias_restantes: number | null;
+  horas_restantes: number | null;
+  disparador: "fecha" | "horas" | null;
+};
+
+export type LecturaUso = {
+  id: string;
+  fecha: string;
+  horometro: number | null;
+  kilometraje: number | null;
+};
+
+/*
+  Detalle de un activo, con todo lo que cuelga de el.
+
+  El conteo de ordenes no es informativo: decide si el activo se puede borrar.
+  La foreign key de ordenes_mantencion hacia activos es RESTRICT, asi que la
+  base impide borrar una maquina con historial. Los planes y las lecturas si van
+  en CASCADE, o sea se borran con ella.
+*/
+export async function obtenerDetalleActivo(id: string): Promise<{
+  activo: Activo | null;
+  tipo_nombre: string | null;
+  planes: PlanDeActivo[];
+  lecturas: LecturaUso[];
+  ordenes: number;
+}> {
+  const supabase = await crearClienteServidor();
+
+  const [resActivo, resPlanes, resEstado, resLecturas, resOrdenes, tipos] = await Promise.all([
+    supabase.from("activos").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("planes_mantencion")
+      .select("id, nombre, intervalo_dias, intervalo_horas, descripcion_tareas, activo")
+      .eq("activo_id", id)
+      .order("nombre"),
+    supabase
+      .from("v_estado_mantencion")
+      .select("plan_id, semaforo, proxima_fecha, dias_restantes, horas_restantes, disparador")
+      .eq("activo_id", id),
+    supabase
+      .from("lecturas_uso")
+      .select("id, fecha, horometro, kilometraje")
+      .eq("activo_id", id)
+      .order("fecha", { ascending: false })
+      .limit(12),
+    supabase
+      .from("ordenes_mantencion")
+      .select("id", { count: "exact", head: true })
+      .eq("activo_id", id),
+    listarTiposActivo(),
+  ]);
+
+  if (resActivo.error || !resActivo.data) {
+    if (resActivo.error) console.error("No pude leer el activo:", resActivo.error.message);
+    return { activo: null, tipo_nombre: null, planes: [], lecturas: [], ordenes: 0 };
+  }
+
+  const activo = resActivo.data as Activo;
+
+  type FilaEstado = {
+    plan_id: string;
+    semaforo: Semaforo | null;
+    proxima_fecha: string | null;
+    dias_restantes: number | null;
+    horas_restantes: number | null;
+    disparador: "fecha" | "horas" | null;
+  };
+
+  const estadoPorPlan = new Map(
+    ((resEstado.data ?? []) as FilaEstado[]).map((e) => [e.plan_id, e]),
+  );
+
+  const planes = ((resPlanes.data ?? []) as Omit<
+    PlanDeActivo,
+    "semaforo" | "proxima_fecha" | "dias_restantes" | "horas_restantes" | "disparador"
+  >[]).map((p) => {
+    const e = estadoPorPlan.get(p.id);
+    return {
+      ...p,
+      semaforo: e?.semaforo ?? null,
+      proxima_fecha: e?.proxima_fecha ?? null,
+      dias_restantes: e?.dias_restantes ?? null,
+      horas_restantes: e?.horas_restantes ?? null,
+      disparador: e?.disparador ?? null,
+    };
+  });
+
+  return {
+    activo,
+    tipo_nombre: tipos.find((t) => t.codigo === activo.tipo_codigo)?.nombre ?? null,
+    planes,
+    lecturas: (resLecturas.data ?? []) as LecturaUso[],
+    ordenes: resOrdenes.count ?? 0,
+  };
+}
