@@ -141,7 +141,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | Etapa | Alcance | Estado |
 |---|---|---|
 | 1 | Scaffold Next.js, Tailwind v4, Barlow, paleta Entel | Listo |
-| 2 | Migraciones, RLS, buckets de Storage, seed | Migraciones listas y verificadas. Seed pendiente |
+| 2 | Migraciones, RLS, buckets de Storage, seed | Listo |
 | 3 | Vista `v_estado_mantencion`, `get_ficha_publica`, tests | Objetos recuperados y verificados. Tests pgTAP pendientes |
 | 4 | Ficha pública `/a/[token]` | Listo |
 | 5 | Auth y layout del panel privado | Listo |
