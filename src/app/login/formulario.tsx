@@ -29,8 +29,11 @@ function Alerta({ mensaje }: { mensaje: string }) {
   mensaje, y ofrece el boton que entra sin tipear nada. El boton es el mismo
   componente que usa la portada.
 
-  La cuenta que se publica aca tiene que ser SIEMPRE de solo lectura: este login
-  es alcanzable desde internet.
+  La cuenta publicada tiene rol admin, por decision explicita del dueño del
+  proyecto, para que la demo permita crear activos e imprimir sus etiquetas. La
+  consecuencia esta asumida: cualquiera con este link puede crear, editar y
+  borrar. El camino de vuelta es supabase/seed.sql, que restaura la demo
+  completa en un comando.
 */
 function AccesoDemo({ email, password }: { email: string; password: string }) {
   return (
@@ -40,8 +43,9 @@ function AccesoDemo({ email, password }: { email: string; password: string }) {
       </h2>
 
       <p className="mt-2 text-sm text-gris-600">
-        Cuenta de solo lectura. Permite recorrer todo el panel sin poder modificar
-        ni borrar nada.
+        Cuenta compartida con permisos completos, para probar el flujo entero:
+        crear activos, imprimir etiquetas QR y recorrer el panel. Los datos son
+        de prueba y cualquiera puede modificarlos.
       </p>
 
       <dl className="mt-3 space-y-1.5">

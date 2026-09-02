@@ -203,7 +203,17 @@ Las passwords no están en el repositorio ni en el historial. Viven en un archiv
 
 La portada tiene un botón **Ingresar como DEMO** que entra al panel en un clic, y `/login` muestra además un recuadro con el correo y la contraseña en texto, para poder copiarlos o compartirlos por mensaje.
 
-**La cuenta publicada tiene que ser siempre de solo lectura.** Hoy es `lector`, que ve todo y no puede modificar ni borrar nada, verificado en `scripts/verifica-auth.mjs`. Publicar una con permiso de escritura equivale a dejar la base abierta a internet, y desde la Etapa 6 el panel escribe.
+**La cuenta publicada es `demo@demo.local` y tiene rol `admin`.** Es una decisión explícita del dueño del proyecto, tomada para que la demostración permita el flujo completo: cargar un activo, imprimir su etiqueta QR y escanearla. Crear activos exige `es_admin()` por la política `activos_admin`, y no existe un rol intermedio que lo permita.
+
+La consecuencia está asumida y conviene tenerla escrita: **cualquiera con el link puede crear, editar y borrar** activos, mantenciones y maestros. Se acepta porque los datos son ficticios y porque `supabase/seed.sql` restaura la demo completa en un comando, ya probado.
+
+Si el proyecto deja de ser una demostración, lo primero es bajar esa cuenta:
+
+```sql
+update public.profiles set rol = 'lector' where email = 'demo@demo.local';
+```
+
+Las cuentas `admin@demo.local`, `tecnico@demo.local` y `lector@demo.local` siguen existiendo con sus roles originales y sirven para probar el comportamiento por rol con `scripts/verifica-auth.mjs`.
 
 Las credenciales viven en la tabla `acceso_demo`, de una sola fila, y se leen con la función `credenciales_demo()`. No están en el repositorio ni en el historial de git: la migración crea la fila apagada y sin clave, y la clave se carga por SQL.
 

@@ -12,10 +12,20 @@ import { crearClientePublico } from "@/lib/supabase/server";
   Las variables de entorno siguen teniendo prioridad, para poder sobrescribir
   sin tocar la base, y DEMO_DESACTIVADO=1 apaga todo de una.
 
-  La cuenta tiene que ser SIEMPRE de rol lector. La funcion de la base entrega
-  la clave en texto claro a cualquiera que la invoque, igual que la pagina la
-  imprime en pantalla, asi que publicar una con permiso de escritura equivale a
-  dejar la base abierta a internet.
+  Sobre el rol de la cuenta publicada: hoy es admin, por decision explicita del
+  dueño del proyecto, para que la demo permita crear activos e imprimir sus
+  etiquetas. Crear activos exige es_admin() por la politica activos_admin, y no
+  hay rol intermedio que lo permita.
+
+  La consecuencia esta asumida y conviene tenerla presente antes de tocar esto:
+  la funcion de la base entrega la clave en texto claro a cualquiera que la
+  invoque, igual que la pagina la imprime en pantalla, asi que cualquiera con el
+  link puede crear, editar y borrar. Los datos son ficticios y supabase/seed.sql
+  restaura la demo completa en un comando.
+
+  Si el proyecto deja de ser una demostracion, lo primero es bajar esa cuenta a
+  rol lector:
+    update public.profiles set rol = 'lector' where email = 'demo@demo.local';
 */
 
 export type CredencialesDemo = { email: string; password: string };

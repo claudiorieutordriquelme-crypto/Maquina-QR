@@ -41,10 +41,10 @@ export default function Home() {
         </div>
 
         <p className="mt-4 max-w-prose text-sm text-gris-500">
-          La cuenta de demostración es de solo lectura: permite recorrer el panel
-          sin poder modificar ni borrar nada. Por ahora el panel muestra el
-          resumen del estado de mantención de la flota; la carga de activos, el
-          registro de mantenciones y los maestros están en construcción.
+          La cuenta de demostración es compartida y con permisos completos: sirve
+          para cargar un activo, imprimir su etiqueta QR y escanearla. Los datos
+          son de prueba y cualquiera puede modificarlos. El registro de
+          mantenciones y los maestros están en construcción.
         </p>
       </div>
     </main>
