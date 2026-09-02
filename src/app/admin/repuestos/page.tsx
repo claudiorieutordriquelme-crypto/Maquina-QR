@@ -13,12 +13,13 @@ const ETIQUETA_MOVIMIENTO: Record<string, string> = {
 };
 
 export default async function RepuestosPage() {
-  const [perfil, { repuestos, error }, proveedores, { movimientos }] = await Promise.all([
+  const [perfil, { repuestos, error }, proveedores, { movimientos, error: errorLibro }] =
+    await Promise.all([
     perfilHabilitado(),
     listarRepuestosCompleto(),
     listarProveedores(),
     listarMovimientos(),
-  ]);
+    ]);
 
   const puedeOperar = perfil ? PERMISOS.operar.includes(perfil.rol) : false;
   const puedeAdministrar = perfil ? PERMISOS.administrar.includes(perfil.rol) : false;
@@ -30,7 +31,9 @@ export default async function RepuestosPage() {
         <div>
           <h1 className="text-2xl font-bold text-gris-900">Repuestos</h1>
           <p className="mt-1 text-base text-gris-600">
-            {repuestos.length} en el maestro
+            {/* Los dos numeros se acotan al mismo universo: antes el total
+                contaba inactivos y la alerta solo activos. */}
+            {repuestos.filter((r) => r.activo).length} activos de {repuestos.length} en el maestro
             {bajoMinimo.length > 0 ? ` · ${bajoMinimo.length} bajo stock mínimo` : ""}
           </p>
         </div>
@@ -140,7 +143,14 @@ export default async function RepuestosPage() {
           se hace con un ajuste compensatorio, que queda registrado.
         </p>
 
-        {movimientos.length === 0 ? (
+        {errorLibro ? (
+          /* Antes este caso se veia igual que un libro vacio, asi que una falla
+             de lectura se leia como "esta maquina no tiene historial". */
+          <p role="alert" className="rounded-md border border-acento p-4 text-sm font-medium text-gris-900">
+            No pude leer el libro de movimientos. Lo que ves arriba puede estar
+            incompleto. Avisa a quien administra el sistema.
+          </p>
+        ) : movimientos.length === 0 ? (
           <p className="rounded-lg border border-gris-200 p-4 text-sm text-gris-600">
             Sin movimientos registrados.
           </p>

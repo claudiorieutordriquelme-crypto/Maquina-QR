@@ -128,6 +128,9 @@ export default async function ActivosPage({
                   {PRESENTACION_SEMAFORO[s].etiqueta}
                 </option>
               ))}
+              {/* El caso mas riesgoso, una maquina sin ningun plan que calcular,
+                  era el unico que no se podia filtrar. */}
+              <option value="sin_planes">Sin planes</option>
             </select>
           </label>
         </div>
@@ -152,7 +155,8 @@ export default async function ActivosPage({
 
       {error ? (
         <p role="alert" className="rounded-md border border-acento p-4 text-sm font-medium text-gris-900">
-          No pude leer los activos: {error}
+          No pude leer los activos. Avisa a quien administra el sistema; el
+          detalle quedó en el registro del servidor.
         </p>
       ) : activos.length === 0 ? (
         <p className="rounded-lg border border-gris-200 p-6 text-base text-gris-600">

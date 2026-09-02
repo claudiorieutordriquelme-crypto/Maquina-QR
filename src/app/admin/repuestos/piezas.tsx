@@ -137,6 +137,23 @@ export function EditarRepuesto({
   repuesto: Repuesto;
   proveedores: { id: string; nombre: string }[];
 }) {
+  /*
+    Si el proveedor habitual del repuesto fue desactivado, no viene en la lista
+    de proveedores activos. Sin esta opcion agregada, el select abriria en "Sin
+    proveedor habitual" y cualquier Guardar, aunque se estuviera editando otra
+    cosa, cortaria el vinculo en silencio.
+  */
+  const opciones =
+    repuesto.proveedor_habitual_id &&
+    !proveedores.some((x) => x.id === repuesto.proveedor_habitual_id)
+      ? [
+          ...proveedores,
+          {
+            id: repuesto.proveedor_habitual_id,
+            nombre: (repuesto.proveedor_nombre ?? "Proveedor") + " (desactivado)",
+          },
+        ]
+      : proveedores;
   const [estado, accion, pendiente] = useActionState<EstadoMaestro, FormData>(
     actualizarRepuesto,
     {},
@@ -161,8 +178,10 @@ export function EditarRepuesto({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block sm:col-span-2">
-          <span className="text-sm font-semibold text-gris-800">Nombre</span>
-          <input name="nombre" defaultValue={repuesto.nombre} className={claseCampo} />
+          <span className="text-sm font-semibold text-gris-800">
+            Nombre<span className="text-acento"> *</span>
+          </span>
+          <input name="nombre" required defaultValue={repuesto.nombre} className={claseCampo} />
         </label>
 
         <label className="block">
@@ -208,7 +227,7 @@ export function EditarRepuesto({
             className={claseCampo}
           >
             <option value="">Sin proveedor habitual</option>
-            {proveedores.map((p) => (
+            {opciones.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
               </option>

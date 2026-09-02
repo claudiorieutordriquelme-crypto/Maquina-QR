@@ -71,13 +71,21 @@ export async function actualizarRepuesto(
   }
 
   const id = texto(datos, "id");
+  const nombre = texto(datos, "nombre");
   if (!id) return { error: "Falta el repuesto." };
+  /*
+    crearRepuesto validaba el nombre y actualizarRepuesto no, y la tabla
+    repuestos no tiene constraint de nombre no vacio, a diferencia de activos,
+    planes y proveedores. Sin esto, borrar el nombre y apretar Guardar dejaba el
+    repuesto sin titulo y su tarjeta en blanco.
+  */
+  if (!nombre) return { error: "El nombre es obligatorio." };
 
   const supabase = await crearClienteServidor();
   const { error } = await supabase
     .from("repuestos")
     .update({
-      nombre: texto(datos, "nombre"),
+      nombre,
       descripcion: opcional(datos, "descripcion"),
       unidad_medida: texto(datos, "unidad_medida") || "unidad",
       stock_minimo: numero(datos, "stock_minimo") ?? 0,

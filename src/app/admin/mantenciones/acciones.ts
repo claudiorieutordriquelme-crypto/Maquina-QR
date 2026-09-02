@@ -34,7 +34,22 @@ const numero = (d: FormData, c: string) => {
 function traduceError(codigo: string | undefined, mensaje: string): string {
   if (codigo === "42501") return "Tu rol no tiene permiso para esta operación.";
   if (codigo === "23503") return "Alguna referencia no existe: revisa el activo, el plan o el proveedor.";
-  if (codigo === "23514") return "Los datos no cumplen una regla de la base. Revisa fechas y montos.";
+  if (codigo === "23514") {
+    /*
+      Cada check constraint se traduce por separado. El mensaje generico
+      mandaba a "revisar fechas y montos" cuando el problema real era la causa
+      de la falla en una orden preventiva, y como el tipo viene por defecto en
+      preventiva, era un callejon sin salida: el usuario corregia fechas y
+      montos una y otra vez sin encontrar nada.
+    */
+    if (mensaje.includes("causa_falla")) {
+      return "La causa de la falla solo se registra en mantenciones correctivas. Cambia el tipo a Correctiva o deja ese campo vacío.";
+    }
+    if (mensaje.includes("fecha_ejecucion")) {
+      return "Una orden completada necesita fecha de ejecución.";
+    }
+    return "Los datos no cumplen una regla de la base. Revisa fechas y montos.";
+  }
   console.error("Error de base:", mensaje);
   return "No pude guardar. Revisa los datos e intenta de nuevo.";
 }
@@ -206,7 +221,17 @@ export async function agregarLinea(_prev: EstadoAccion, datos: FormData): Promis
 
   revalidatePath(`/admin/mantenciones/${orden_id}`);
   revalidatePath("/admin");
-  return { ok: "Repuesto agregado. El stock ya quedó descontado." };
+  /*
+    El mensaje distingue los dos casos porque el trigger tambien los distingue:
+    una linea con descripcion libre no tiene repuesto_id, asi que no mueve
+    inventario. Prometer un descuento que no ocurrio manda a alguien a buscar un
+    movimiento que no existe.
+  */
+  return {
+    ok: repuesto_id
+      ? "Repuesto agregado. El stock ya quedó descontado."
+      : "Línea agregada. Al ser un repuesto fuera del maestro, no mueve inventario.",
+  };
 }
 
 /*

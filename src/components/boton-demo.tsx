@@ -20,9 +20,12 @@ import { entrarComoDemo, type EstadoLogin } from "@/app/login/acciones";
 export function BotonDemo({
   variante = "primario",
   etiqueta = "Ingresar como DEMO",
+  volver,
 }: {
   variante?: "primario" | "secundario";
   etiqueta?: string;
+  /** Destino al que volver despues de entrar, si venia uno guardado. */
+  volver?: string;
 }) {
   const [estado, accion, pendiente] = useActionState<EstadoLogin, FormData>(entrarComoDemo, {});
 
@@ -34,6 +37,7 @@ export function BotonDemo({
   return (
     <div>
       <form action={accion}>
+        {volver ? <input type="hidden" name="volver" value={volver} /> : null}
         <button
           type="submit"
           disabled={pendiente}

@@ -84,7 +84,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Máquina QR
             </p>
             <p className="mt-0.5 text-base font-semibold text-gris-900">
-              {perfil.nombre || perfil.email}
+              {/* Con perfil sin nombre ni correo, la linea quedaba vacia y solo
+                  se veia la etiqueta del rol. */}
+              {perfil.nombre || perfil.email || "Sin nombre registrado"}
               <span className="ml-2 rounded border border-gris-300 px-1.5 py-0.5 align-middle text-xs font-semibold text-gris-600">
                 {ETIQUETA_ROL[perfil.rol]}
               </span>
@@ -113,11 +115,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     {s.nombre}
                   </Link>
                 ) : (
-                  <span
-                    className="pb-1 text-sm font-medium text-gris-400"
-                    title={`Se construye en la etapa ${s.etapa}`}
-                  >
+                  /* El aviso iba en un title, que solo existe con mouse: en
+                     telefono y con teclado no habia forma de verlo, y el panel
+                     se usa en terreno desde el celular. Ahora es texto. */
+                  <span className="inline-flex items-baseline gap-1 pb-1 text-sm font-medium text-gris-400">
                     {s.nombre}
+                    <span className="text-xs">(en construcción)</span>
                   </span>
                 )}
               </li>

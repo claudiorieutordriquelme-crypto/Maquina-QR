@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { obtenerCredencialesDemo } from "@/lib/datos/demo";
 import { crearClienteServidor } from "@/lib/supabase/server";
 
-export type EstadoLogin = { error?: string };
+export type EstadoLogin = { error?: string; email?: string };
 
 /*
   Solo se permite volver a rutas internas del panel. Sin esta validacion,
@@ -25,7 +25,7 @@ export async function iniciarSesion(
   const password = String(datos.get("password") ?? "");
 
   if (!email || !password) {
-    return { error: "Ingresa tu correo y tu contraseña." };
+    return { error: "Ingresa tu correo y tu contraseña.", email };
   }
 
   const supabase = await crearClienteServidor();
@@ -37,7 +37,13 @@ export async function iniciarSesion(
       confirmar. Distinguirlos le permite a cualquiera averiguar que correos
       tienen cuenta en el sistema probando de a uno.
     */
-    return { error: "Correo o contraseña incorrectos." };
+    /*
+      El correo se devuelve para repintarlo. React limpia los campos del
+      formulario al terminar la accion, asi que sin esto un error de clave
+      obligaba a tipear de nuevo el correo completo, que en un telefono en
+      terreno es la diferencia entre reintentar y rendirse.
+    */
+    return { error: "Correo o contraseña incorrectos.", email };
   }
 
   redirect(destinoSeguro(datos.get("volver")));
@@ -53,7 +59,7 @@ export async function iniciarSesion(
 */
 export async function entrarComoDemo(
   _estadoPrevio: EstadoLogin,
-  _datos: FormData,
+  datos: FormData,
 ): Promise<EstadoLogin> {
   const demo = await obtenerCredencialesDemo();
 
@@ -69,5 +75,11 @@ export async function entrarComoDemo(
     return { error: "El acceso de demostración no está disponible por ahora." };
   }
 
-  redirect("/admin");
+  /*
+    Respeta el destino guardado, igual que el login normal. Antes redirigia
+    siempre a /admin, asi que si el proxy te habia mandado a
+    /login?volver=/admin/activos/nuevo y entrabas con la demo, perdias el
+    destino y tenias que volver a buscarlo.
+  */
+  redirect(destinoSeguro(datos.get("volver")));
 }

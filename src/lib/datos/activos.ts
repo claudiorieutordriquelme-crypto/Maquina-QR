@@ -128,7 +128,17 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
   if (filtros.tipo) activos = activos.filter((a) => a.tipo_codigo === filtros.tipo);
   if (filtros.estado) activos = activos.filter((a) => a.estado === filtros.estado);
   if (filtros.ubicacion) activos = activos.filter((a) => a.ubicacion === filtros.ubicacion);
-  if (filtros.semaforo) activos = activos.filter((a) => a.semaforo === filtros.semaforo);
+  /*
+    "sin_planes" no es un valor del enum semaforo_mantencion: es la ausencia de
+    filas en la vista para ese activo. Se trata aparte porque es justamente el
+    caso mas riesgoso, una maquina sin ningun plan que calcular, y antes era el
+    unico que no se podia aislar.
+  */
+  if (filtros.semaforo === "sin_planes") {
+    activos = activos.filter((a) => a.semaforo === null);
+  } else if (filtros.semaforo) {
+    activos = activos.filter((a) => a.semaforo === filtros.semaforo);
+  }
 
   return { activos, ubicaciones, error: null };
 }

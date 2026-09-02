@@ -42,9 +42,9 @@ export default function Home() {
 
         <p className="mt-4 max-w-prose text-sm text-gris-500">
           La cuenta de demostración es compartida y con permisos completos: sirve
-          para cargar un activo, imprimir su etiqueta QR y escanearla. Los datos
-          son de prueba y cualquiera puede modificarlos. El registro de
-          mantenciones y los maestros están en construcción.
+          para cargar un activo, imprimir su etiqueta QR, escanearla, registrar
+          una mantención con sus repuestos y revisar los maestros. Los datos son
+          de prueba y cualquiera puede modificarlos.
         </p>
       </div>
     </main>

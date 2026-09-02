@@ -35,7 +35,15 @@ function Alerta({ mensaje }: { mensaje: string }) {
   borrar. El camino de vuelta es supabase/seed.sql, que restaura la demo
   completa en un comando.
 */
-function AccesoDemo({ email, password }: { email: string; password: string }) {
+function AccesoDemo({
+  email,
+  password,
+  volver,
+}: {
+  email: string;
+  password: string;
+  volver: string;
+}) {
   return (
     <section className="mt-9 rounded-lg border border-gris-200 p-4">
       <h2 className="text-xs font-bold tracking-widest text-primario uppercase">
@@ -62,7 +70,7 @@ function AccesoDemo({ email, password }: { email: string; password: string }) {
       </dl>
 
       <div className="mt-3">
-        <BotonDemo variante="secundario" etiqueta="Ingresar como DEMO" />
+        <BotonDemo variante="secundario" etiqueta="Ingresar como DEMO" volver={volver} />
       </div>
     </section>
   );
@@ -99,6 +107,12 @@ export function FormularioLogin({
             autoComplete="username"
             required
             autoFocus
+            /*
+              Se repinta el correo que volvio en el estado. React limpia los
+              campos al terminar la accion, asi que sin esto un error de clave
+              obligaba a tipear de nuevo el correo completo.
+            */
+            defaultValue={estado.email ?? ""}
             className="mt-1.5 w-full rounded-md border border-gris-300 px-3 py-2.5 text-base text-gris-900 outline-none focus:border-primario focus:ring-2 focus:ring-primario/30"
           />
         </div>
@@ -128,7 +142,9 @@ export function FormularioLogin({
         </button>
       </form>
 
-      {demo ? <AccesoDemo email={demo.email} password={demo.password} /> : null}
+      {demo ? (
+        <AccesoDemo email={demo.email} password={demo.password} volver={volver} />
+      ) : null}
     </>
   );
 }

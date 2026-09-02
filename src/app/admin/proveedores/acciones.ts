@@ -21,7 +21,15 @@ function traduce(codigo: string | undefined, mensaje: string): string {
   if (codigo === "23505") return "Ya existe un proveedor con ese RUT.";
   if (codigo === "23514") {
     if (mensaje.includes("rut")) {
-      return "El RUT no es válido: el dígito verificador no cuadra con el módulo 11.";
+      /*
+        valida_rut devuelve falso por tres motivos distintos: digito verificador
+        que no cuadra, largo fuera de 8 o 9 caracteres, o letras en el cuerpo.
+        Culpar siempre al digito verificador manda a revisar lo que esta bien.
+      */
+      return "El RUT no es válido. Revisa que el cuerpo sean solo números, que tenga 7 u 8 dígitos y que el dígito verificador cuadre.";
+    }
+    if (mensaje.includes("email")) {
+      return "El correo de contacto no tiene un formato válido.";
     }
     return "Los datos no cumplen una regla de la base.";
   }

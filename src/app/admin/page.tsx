@@ -1,3 +1,4 @@
+import { GlifoSemaforo } from "@/components/glifo-semaforo";
 import { DESCRIPCION_ROL, ETIQUETA_ROL, perfilHabilitado } from "@/lib/auth";
 import { PRESENTACION_SEMAFORO } from "@/lib/formato";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -81,7 +82,12 @@ function Tarjeta({ estado, cantidad }: { estado: Semaforo; cantidad: number }) {
       <div className={`w-2 shrink-0 ${p.barra}`} aria-hidden="true" />
       <div className="p-4">
         <p className="text-3xl font-bold text-gris-900">{cantidad}</p>
-        <p className="mt-0.5 text-sm font-semibold text-gris-600">{p.etiqueta}</p>
+        {/* El glifo es obligatorio: vencida y critica comparten el acento, asi
+            que sin forma propia no se distinguen de un vistazo. */}
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-gris-600">
+          <GlifoSemaforo estado={estado} className="size-4 shrink-0 text-gris-500" />
+          {p.etiqueta}
+        </p>
       </div>
     </div>
   );
@@ -156,13 +162,13 @@ export default async function AdminPage() {
           Lo que falta construir
         </h2>
         <ul className="mt-3 space-y-1.5 text-sm text-gris-600">
-          <li>Activos, con filtros y generación e impresión de etiquetas QR.</li>
-          <li>Mantenciones, con líneas de repuestos y adjunto de factura.</li>
-          <li>Maestros de repuestos y proveedores, con movimientos de stock.</li>
           <li>
-            La tabla ordenada por criticidad, los gráficos de costo y la exportación a CSV, que
-            completan este resumen.
+            La tabla ordenada por criticidad, con acceso directo a registrar la mantención de
+            cada plan.
           </li>
+          <li>Los gráficos de costo por activo y el split preventiva contra correctiva.</li>
+          <li>La exportación a CSV de los reportes por activo, tipo y proveedor.</li>
+          <li>La pantalla de configuración, donde se cambian los umbrales de alerta.</li>
         </ul>
       </section>
     </div>
