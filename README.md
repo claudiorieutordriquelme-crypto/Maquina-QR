@@ -183,6 +183,16 @@ Con las dos primeras la ficha pública ya funciona. Las otras dos se cargan cuan
 
 Hoy el dominio de producción es `https://maquina-qr.vercel.app`. Si en algún momento se conecta un dominio propio, hay que decidirlo **antes** de imprimir, porque Vercel mantiene el `.vercel.app` funcionando pero las etiquetas quedarían apuntando a una URL que no es la institucional.
 
+## Guía de uso
+
+El panel incluye una guía en `/admin/guia` con el paso a paso de las nueve secciones: qué hace cada una, qué ves y qué pasa en cada paso, quién puede hacer qué, las advertencias que evitan perder trabajo y lo que todavía no está construido. Se puede imprimir.
+
+Es estática a propósito: no consulta la base, así que sirve justo cuando algo no está funcionando.
+
+**Cómo se escribió, y cómo hay que mantenerla.** No de memoria. Se levantaron 18 agentes: uno por sección leyendo el código fuente y describiendo lo que la pantalla hace de verdad, y un escéptico por sección tratando de refutar esa descripción contra el mismo código. Las nueve volvieron con correcciones, y 14 eran defectos reales que se arreglaron antes de publicar la guía.
+
+Si cambia una pantalla, cambia `src/app/admin/guia/contenido.ts` en el mismo commit. Lo que más rápido envejece es la lista de "todavía no hace": aparece como definitiva y vence en el siguiente despliegue.
+
 ## Panel privado
 
 `/login` y `/admin` están en producción. Tres capas, con responsabilidades distintas y sin superposición:

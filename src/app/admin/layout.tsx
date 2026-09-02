@@ -36,6 +36,7 @@ const SECCIONES: Seccion[] = [
     etapa: 8,
     roles: ["admin", "tecnico", "lector"],
   },
+  { nombre: "Guía de uso", ruta: "/admin/guia", etapa: 6, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Reportes", etapa: 9, roles: ["admin", "lector"] },
   { nombre: "Configuración", etapa: 10, roles: ["admin"] },
 ];
