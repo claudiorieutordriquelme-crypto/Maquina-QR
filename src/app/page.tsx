@@ -1,8 +1,11 @@
 /*
-  Landing minima. El acceso al panel usa un ancla y no next/link a proposito:
-  Next 16 tipa las rutas, y /login recien existe en la Etapa 5, asi que un
-  <Link href="/login"> hoy rompe el typecheck. Cuando la ruta exista se cambia
-  por <Link> para tener prefetch.
+  Landing minima.
+
+  El acceso al panel todavia no es un enlace: /login recien existe en la Etapa 5
+  y un boton que responde 404 es peor que un boton que dice que no esta listo,
+  sobre todo en una URL que se comparte para revisar el avance. Cuando la ruta
+  exista se cambia por <Link href="/login">, que ademas da prefetch. Se usara
+  <Link> y no un ancla porque Next 16 tipa las rutas y recien ahi compila.
 */
 export default function Home() {
   return (
@@ -22,15 +25,13 @@ export default function Home() {
       </div>
 
       <div className="border-t border-gris-200 pt-8">
-        <a
-          href="/login"
-          className="inline-flex items-center rounded-md bg-primario px-5 py-3 text-base font-semibold text-blanco transition-opacity hover:opacity-90"
-        >
-          Acceder al panel
-        </a>
-        <p className="mt-3 text-sm text-gris-500">
-          El panel privado permite cargar activos, registrar mantenciones y
-          gestionar repuestos y proveedores.
+        <p className="inline-flex items-center rounded-md border border-gris-300 px-5 py-3 text-base font-semibold text-gris-500">
+          Panel privado: en construcción
+        </p>
+        <p className="mt-3 max-w-prose text-sm text-gris-500">
+          Permitirá cargar activos, registrar mantenciones, adjuntar facturas y
+          gestionar el maestro de repuestos y proveedores. La ficha que se abre
+          al escanear un código QR ya está operativa.
         </p>
       </div>
     </main>
