@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 */
 type Seccion = {
   nombre: string;
-  ruta?: "/admin" | "/admin/activos";
+  ruta?: "/admin" | "/admin/activos" | "/admin/mantenciones";
   etapa: number;
   roles: Rol[];
 };
@@ -27,7 +27,7 @@ type Seccion = {
 const SECCIONES: Seccion[] = [
   { nombre: "Resumen", ruta: "/admin", etapa: 5, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Activos", ruta: "/admin/activos", etapa: 6, roles: ["admin", "tecnico", "lector"] },
-  { nombre: "Mantenciones", etapa: 7, roles: ["admin", "tecnico", "lector"] },
+  { nombre: "Mantenciones", ruta: "/admin/mantenciones", etapa: 7, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Repuestos", etapa: 8, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Proveedores", etapa: 8, roles: ["admin", "tecnico", "lector"] },
   { nombre: "Reportes", etapa: 9, roles: ["admin", "lector"] },

@@ -40,7 +40,7 @@ npm run dev
 
 Usar las claves **legacy en formato JWT** (`anon`, `service_role`), no las nuevas `sb_publishable_` / `sb_secret_`.
 
-`SUPABASE_SERVICE_ROLE_KEY` se necesita recién en la Etapa 7. Hasta entonces ningún camino de ejecución la lee.
+`SUPABASE_SERVICE_ROLE_KEY` **no se necesita nunca**. La especificación original asumía que las facturas del bucket privado exigían esa clave, y no es así: las políticas de `storage.objects` permiten subir con `puede_operar()` y leer con `puede_leer()`, así que la subida y la firma de URLs se hacen con la sesión de quien opera. Verificado contra el proyecto real: subida 200, firma 200, y la misma ruta responde 400 por URL pública y 400 con solo la anon key. La aplicación nunca tiene una clave que se salte RLS.
 
 ### Desarrollo local detrás del proxy corporativo
 
@@ -146,7 +146,7 @@ El estado nunca se comunica solo por color. Cada estado del semáforo lleva etiq
 | 4 | Ficha pública `/a/[token]` | Listo |
 | 5 | Auth y layout del panel privado | Listo |
 | 6 | CRUD de activos e impresión de etiquetas QR | Listado, alta e impresión listos. Ficha de detalle pendiente |
-| 7 | CRUD de mantenciones | Pendiente |
+| 7 | CRUD de mantenciones | Listo |
 | 8 | Maestros de repuestos y proveedores | Pendiente |
 | 9 | Dashboard y reportes | Pendiente |
 | 10 | Configuración y cierre | Pendiente |
