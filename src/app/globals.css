@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/*
+  Identidad visual Entel como unica fuente de color del proyecto.
+
+  Por que se resetea --color-* a initial: Tailwind v4 trae su escala completa
+  (blue-500, red-600, amber-400...). Dejarla viva significa que en cualquiera de
+  las etapas 5 a 10 alguien escribe bg-red-500 para un estado vencido y el
+  proyecto sale de marca sin que nadie lo note en review. Reseteando, esa clase
+  simplemente no existe y el build no la genera. El costo es que los neutros hay
+  que declararlos a mano, mas abajo.
+
+  No se definen tintes suaves de los colores de marca (tipo #fff1ec). La regla
+  de identidad dice neutros grises y blanco para superficies, asi que los
+  estados criticos se resuelven con superficie neutra mas borde, texto e icono
+  en acento, no con fondos teniidos.
+*/
+@theme {
+  --color-*: initial;
+
+  /* Tailwind necesita estos tres para utilidades como border-transparent */
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-inherit: inherit;
+
+  /* Marca Entel. Estos tres valores no se tocan. */
+  --color-primario: #002eff;
+  --color-acento: #ff3d00;
+  --color-secundario: #41e8b4;
+
+  /* Neutros: superficies y texto */
+  --color-blanco: #ffffff;
+  --color-gris-50: #f7f7f8;
+  --color-gris-100: #ededf0;
+  --color-gris-200: #dcdce1;
+  --color-gris-300: #bfbfc7;
+  --color-gris-400: #8f8f9a;
+  --color-gris-500: #6b6b76;
+  --color-gris-600: #4d4d57;
+  --color-gris-700: #35353d;
+  --color-gris-800: #22222a;
+  --color-gris-900: #14141a;
+  --color-negro: #0a0a0a;
+
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+  Mapeo del semaforo. Vive aca y no en cada componente para que el criterio sea
+  uno solo entre la ficha publica (Etapa 4) y el dashboard (Etapa 9).
+
+  vencida y critica comparten el acento y se diferencian por intensidad de
+  superficie y por glifo, nunca solo por color: en terreno hay daltonismo y
+  pantallas quemadas por el sol.
+*/
+@theme {
+  --color-estado-vencida: var(--color-acento);
+  --color-estado-critica: var(--color-acento);
+  --color-estado-proxima: var(--color-gris-800);
+  --color-estado-al-dia: var(--color-secundario);
+  --color-estado-sin-linea-base: var(--color-gris-400);
+}
