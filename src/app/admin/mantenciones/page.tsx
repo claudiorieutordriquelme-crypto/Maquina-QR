@@ -62,6 +62,7 @@ export default async function MantencionesPage({
         {puedeOperar ? (
           <Link
             href="/admin/mantenciones/nueva"
+            data-tour="mant-nueva"
             className="rounded-md bg-primario px-4 py-2.5 text-sm font-semibold text-blanco transition-opacity hover:opacity-90"
           >
             Nueva mantención
@@ -69,7 +70,7 @@ export default async function MantencionesPage({
         ) : null}
       </div>
 
-      <form method="get" className="rounded-lg border border-gris-200 p-4">
+      <form method="get" className="rounded-lg border border-gris-200 p-4" data-tour="mant-filtros">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <label className="block">
             <span className="text-xs font-semibold tracking-wide text-gris-500 uppercase">Tipo</span>

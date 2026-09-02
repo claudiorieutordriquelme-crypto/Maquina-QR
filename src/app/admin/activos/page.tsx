@@ -53,6 +53,7 @@ export default async function ActivosPage({
           {puedeAdministrar ? (
             <Link
               href="/admin/activos/nuevo"
+              data-tour="activos-nuevo"
               className="rounded-md bg-primario px-4 py-2.5 text-sm font-semibold text-blanco transition-opacity hover:opacity-90"
             >
               Nuevo activo
@@ -61,7 +62,7 @@ export default async function ActivosPage({
         </div>
       </div>
 
-      <form method="get" className="rounded-lg border border-gris-200 p-4">
+      <form method="get" className="rounded-lg border border-gris-200 p-4" data-tour="activos-filtros">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block">
             <span className="text-xs font-semibold tracking-wide text-gris-500 uppercase">Tipo</span>
@@ -165,7 +166,7 @@ export default async function ActivosPage({
             : "Todavía no hay activos cargados."}
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-3" data-tour="activos-lista">
           {activos.map((a) => {
             const p = a.semaforo ? PRESENTACION_SEMAFORO[a.semaforo] : null;
             return (

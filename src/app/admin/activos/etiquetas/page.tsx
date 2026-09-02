@@ -75,7 +75,7 @@ export default async function EtiquetasPage({
         </p>
       </div>
 
-      <div className="rounded-lg border border-gris-200 p-4 print:hidden">
+      <div className="rounded-lg border border-gris-200 p-4 print:hidden" data-tour="etiquetas-base">
         <p className="text-xs font-bold tracking-widest text-gris-500 uppercase">
           Todos los códigos apuntan a
         </p>
@@ -92,7 +92,7 @@ export default async function EtiquetasPage({
           No hay activos operativos que etiquetar.
         </p>
       ) : (
-        <form method="get" className="rounded-lg border border-gris-200 print:hidden">
+        <form method="get" className="rounded-lg border border-gris-200 print:hidden" data-tour="etiquetas-seleccion">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gris-200 p-4">
             <div>
               <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">

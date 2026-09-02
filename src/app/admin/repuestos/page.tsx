@@ -134,7 +134,7 @@ export default async function RepuestosPage() {
 
       {puedeOperar ? <RegistrarMovimiento repuestos={repuestos.filter((r) => r.activo)} /> : null}
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-tour="rep-libro">
         <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
           Libro de movimientos
         </h2>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { GlifoSemaforo } from "@/components/glifo-semaforo";
 import { DESCRIPCION_ROL, ETIQUETA_ROL, perfilHabilitado } from "@/lib/auth";
 import { PRESENTACION_SEMAFORO } from "@/lib/formato";
@@ -117,13 +116,13 @@ export default async function AdminPage() {
           </p>
         ) : (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" data-tour="resumen-semaforo">
               {ORDEN_SEMAFORO.map((e) => (
                 <Tarjeta key={e} estado={e} cantidad={conteos.porSemaforo[e]} />
               ))}
             </div>
 
-            <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3" data-tour="resumen-indicadores">
               <div className="rounded-lg border border-gris-200 p-4">
                 <dt className="text-sm font-semibold text-gris-600">Planes vigentes</dt>
                 <dd className="mt-0.5 text-2xl font-bold text-gris-900">{conteos.totalPlanes}</dd>
@@ -157,26 +156,6 @@ export default async function AdminPage() {
           <p className="mt-1 text-sm text-gris-600">{DESCRIPCION_ROL[perfil.rol]}</p>
         </section>
       ) : null}
-
-      <section className="flex overflow-hidden rounded-lg border border-gris-200">
-        <div className="w-2 shrink-0 bg-primario" aria-hidden="true" />
-        <div className="p-5">
-          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
-            ¿Primera vez acá?
-          </h2>
-          <p className="mt-2 max-w-prose text-base text-gris-700">
-            La guía de uso explica paso a paso qué hace cada sección, quién puede
-            hacer qué y las advertencias que evitan perder trabajo. Se puede
-            imprimir para dejarla pegada en la oficina de mantención.
-          </p>
-          <Link
-            href="/admin/guia"
-            className="mt-3 inline-block rounded-md border border-primario px-4 py-2.5 text-sm font-semibold text-primario transition-colors hover:bg-primario hover:text-blanco"
-          >
-            Abrir la guía de uso
-          </Link>
-        </div>
-      </section>
 
       <section className="border-t border-gris-200 pt-6">
         <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">

@@ -183,16 +183,30 @@ Con las dos primeras la ficha pública ya funciona. Las otras dos se cargan cuan
 
 Hoy el dominio de producción es `https://maquina-qr.vercel.app`. Si en algún momento se conecta un dominio propio, hay que decidirlo **antes** de imprimir, porque Vercel mantiene el `.vercel.app` funcionando pero las etiquetas quedarían apuntando a una URL que no es la institucional.
 
-## Guía de uso
+## Tutorial guiado
 
-El panel incluye una guía en `/admin/guia` con el paso a paso de las nueve secciones: qué hace cada una, qué ves y qué pasa en cada paso, quién puede hacer qué, las advertencias que evitan perder trabajo y lo que todavía no está construido. Se puede imprimir.
+El panel trae un recorrido guiado de 14 pasos que se abre solo la primera vez que alguien entra al resumen, y queda a mano en el botón **Tutorial** del encabezado.
 
-Es estática a propósito: no consulta la base, así que sirve justo cuando algo no está funcionando.
+No es un manual: cada paso destaca un elemento real de la pantalla, navega solo hasta la sección donde ese elemento vive, y deja el elemento destacado **completamente interactivo**, así que quien está aprendiendo puede apretarlo de verdad en vez de mirarlo.
 
-**Cómo se escribió, y cómo hay que mantenerla.** No de memoria. Se levantaron 18 agentes: uno por sección leyendo el código fuente y describiendo lo que la pantalla hace de verdad, y un escéptico por sección tratando de refutar esa descripción contra el mismo código. Las nueve volvieron con correcciones, y 14 eran defectos reales que se arreglaron antes de publicar la guía.
+Se avanza con los botones, con las flechas del teclado o con Enter, y se sale con Escape.
 
-Si cambia una pantalla, cambia `src/app/admin/guia/contenido.ts` en el mismo commit. Lo que más rápido envejece es la lista de "todavía no hace": aparece como definitiva y vence en el siguiente despliegue.
+### Cómo está armado
 
+- `src/lib/tutorial/pasos.ts`: los pasos. Cada uno apunta a un elemento por su atributo `data-tour`.
+- `src/components/tutorial/tutorial.tsx`: el motor. Anclaje con reintentos, foco, navegación entre rutas y teclado.
+- El foco se dibuja con cuatro rectángulos alrededor del elemento, no con una máscara SVG. Más simple de calcular, igual en cualquier navegador, y el hueco queda interactivo.
+- El estado se guarda en `localStorage`, envuelto en `try/catch`: en una ventana privada eso lanza, y un tutorial que revienta la página por no poder recordar el paso 3 sería peor que no tenerlo.
+
+### El chequeo que lo mantiene honesto
+
+```bash
+node scripts/verifica-tutorial.mjs
+```
+
+Si alguien renombra o borra un `data-tour`, el paso no lanza ningún error: cae a una tarjeta centrada y el recorrido sigue andando, pero pierde justo lo que lo hace útil. Es una falla silenciosa, y por eso hay un chequeo explícito. Verifica tres cosas: que cada ancla que un paso pide exista en el código, que ningún `data-tour` del código quede huérfano, y que las rutas de los pasos existan como página.
+
+El contenido salió de la auditoría de las nueve secciones: un agente por sección leyendo el código y un escéptico refutando su descripción contra el mismo código. Si cambia una pantalla, cambia `pasos.ts` en el mismo commit.
 ## Panel privado
 
 `/login` y `/admin` están en producción. Tres capas, con responsabilidades distintas y sin superposición:
