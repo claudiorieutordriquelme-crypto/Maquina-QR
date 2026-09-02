@@ -155,7 +155,36 @@ export default async function RepuestosPage() {
             Sin movimientos registrados.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gris-200">
+          <>
+          {/* Bajo 640 px, tarjetas. Cinco columnas no caben en un telefono, y
+              con scroll horizontal nadie desliza: se ven las dos primeras
+              columnas y se asume que eso es todo. */}
+          <ul className="space-y-2 sm:hidden">
+            {movimientos.map((m) => (
+              <li key={m.id} className="rounded-lg border border-gris-200 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gris-900">
+                      {m.repuesto_codigo} · {m.repuesto_nombre}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gris-500">
+                      {formateaFechaCorta(m.created_at)} ·{" "}
+                      {ETIQUETA_MOVIMIENTO[m.tipo] ?? m.tipo}
+                      {m.orden_id ? " (desde una orden)" : ""}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-base font-bold text-gris-900">
+                    {formateaNumero(m.cantidad)}
+                  </p>
+                </div>
+                {m.motivo ? (
+                  <p className="mt-1.5 text-sm text-gris-600">{m.motivo}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-lg border border-gris-200 sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gris-200 text-left text-xs font-semibold tracking-wide text-gris-500 uppercase">
@@ -190,6 +219,7 @@ export default async function RepuestosPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </div>

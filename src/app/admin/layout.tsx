@@ -98,7 +98,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-20 border-b border-gris-200 bg-blanco/90 shadow-barra backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <LogoCliente className="h-10 w-14 shrink-0" />
+            <LogoCliente className="h-9 w-12 shrink-0 sm:h-10 sm:w-14" />
             <div className="min-w-0" data-tour="identidad">
               <p className="text-xs font-bold tracking-widest text-primario uppercase">
                 Máquina QR
@@ -116,14 +116,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Tutorial />
             <form action={cerrarSesion}>
               <button
                 type="submit"
-                className="rounded-md border border-gris-300 px-3 py-2 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500 hover:text-gris-900"
+                className="shrink-0 rounded-md border border-gris-300 px-3 py-2 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500 hover:text-gris-900"
               >
-                Cerrar sesión
+                <span className="sm:hidden">Salir</span>
+                <span className="hidden sm:inline">Cerrar sesión</span>
               </button>
             </form>
           </div>

@@ -102,7 +102,39 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
             Esta orden no tiene repuestos registrados.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gris-200">
+          <>
+          {/* Bajo 640 px, tarjetas: cuatro columnas mas la accion de eliminar no
+              caben en un telefono. */}
+          <ul className="space-y-2 sm:hidden">
+            {lineas.map((l) => (
+              <li key={l.id} className="rounded-lg border border-gris-200 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 text-sm font-semibold text-gris-900">
+                    {l.repuesto_nombre ?? l.descripcion_libre ?? "Sin descripción"}
+                    {!l.repuesto_id ? (
+                      <span className="ml-1 text-xs font-normal text-gris-500">
+                        (fuera del maestro)
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="shrink-0 text-base font-bold text-gris-900">
+                    {formateaPesos(l.subtotal)}
+                  </p>
+                </div>
+                <p className="mt-1 text-sm text-gris-600">
+                  {formateaNumero(l.cantidad)} {l.repuesto_unidad ?? ""} ×{" "}
+                  {formateaPesos(l.costo_unitario)}
+                </p>
+                {puedeAdministrar ? (
+                  <div className="mt-2">
+                    <BotonEliminarLinea id={l.id} ordenId={orden.id} />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-lg border border-gris-200 sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gris-200 text-left text-xs font-semibold tracking-wide text-gris-500 uppercase">
@@ -141,6 +173,7 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {puedeOperar ? <AgregarLinea ordenId={orden.id} repuestos={repuestos} /> : null}

@@ -14,35 +14,54 @@ import { PASOS_TUTORIAL } from "@/lib/tutorial/pasos";
   Decisiones que vale conocer antes de tocar esto:
 
   - El foco se hace con cuatro rectangulos que rodean al elemento, no con una
-    mascara SVG ni con un recorte. Es mas simple de calcular, funciona igual en
-    cualquier navegador, y deja el elemento destacado completamente interactivo:
-    quien esta aprendiendo puede apretarlo de verdad en vez de mirarlo.
-  - Si un ancla no aparece, el paso NO se rompe: cae a una tarjeta centrada con
-    el mismo texto. Un recorrido a medias es mejor que un recorrido trabado.
-  - El estado se guarda en el navegador de cada persona, envuelto en try/catch:
-    en una ventana privada o con las cookies bloqueadas, localStorage lanza. Un
-    tutorial que revienta la pagina por no poder recordar el paso 3 seria peor
-    que no tener tutorial.
-  - Arranca solo una vez, la primera vez que alguien entra al resumen. Despues
-    queda a mano en el boton del encabezado. Un tutorial que se abre siempre
-    deja de ser ayuda y pasa a ser un obstaculo.
+    mascara SVG. Es mas simple de calcular, se comporta igual en cualquier
+    navegador, y deja el elemento destacado completamente interactivo: quien
+    esta aprendiendo puede apretarlo de verdad en vez de mirarlo.
+  - Si un ancla no aparece, el paso NO se rompe: cae a hoja inferior con el
+    mismo texto. Un recorrido a medias es mejor que uno trabado.
+  - El estado se guarda en el navegador, envuelto en try/catch: en ventana
+    privada localStorage lanza, y un tutorial que revienta la pagina por no
+    poder recordar el paso 3 seria peor que no tenerlo.
+  - Arranca una sola vez. Un tutorial que se abre siempre deja de ser ayuda.
+
+  TRES REGLAS DE COLOCACION, aprendidas de un recorte real en pantalla.
+
+  La primera version centraba la tarjeta con translateY(-50%) y sin alto
+  maximo. Con el texto de un paso mas su advertencia, la tarjeta quedaba mas
+  alta que el espacio disponible y se salia por arriba: el "Paso 1 de 14", la
+  barra de avance y el titulo quedaban fuera de la pantalla, sin scroll para
+  alcanzarlos. Ahora:
+
+  1. La tarjeta nunca excede el viewport. Siempre lleva alto maximo y scroll
+     propio, en las tres colocaciones.
+  2. Si no hay espacio suficiente junto al elemento, se ancla al borde inferior
+     en vez de forzar una posicion que no cabe. El foco sobre el elemento se
+     mantiene igual.
+  3. Bajo 640 px es siempre hoja inferior. En un telefono, una tarjeta flotando
+     junto al elemento tapa justamente lo que se esta explicando.
 */
 
 const CLAVE = "maquina-qr:tutorial:v1";
 const MARGEN_FOCO = 8;
 const ANCHO_TARJETA = 380;
+const ALTO_MINIMO_TARJETA = 280;
 const INTENTOS_ANCLA = 40;
 const ESPERA_ANCLA = 50;
 
 type Recuadro = { top: number; left: number; width: number; height: number };
+type Ventana = { ancho: number; alto: number };
+
+/** Donde se dibuja la tarjeta. La hoja inferior es el respaldo de todo. */
+type Colocacion =
+  | { modo: "hoja" }
+  | { modo: "centrada" }
+  | { modo: "anclada"; estilo: React.CSSProperties };
 
 function leerEstado(): { completado: boolean } {
   try {
     const bruto = window.localStorage.getItem(CLAVE);
     return bruto ? (JSON.parse(bruto) as { completado: boolean }) : { completado: false };
   } catch {
-    // Ventana privada, cookies bloqueadas, o almacenamiento lleno. Se asume no
-    // completado: como maximo el tutorial se ofrece de nuevo.
     return { completado: false };
   }
 }
@@ -51,8 +70,13 @@ function guardarCompletado() {
   try {
     window.localStorage.setItem(CLAVE, JSON.stringify({ completado: true }));
   } catch {
-    // Sin persistencia el recorrido igual funciona, solo se vuelve a ofrecer.
+    // Sin persistencia el recorrido funciona igual, solo se vuelve a ofrecer.
   }
+}
+
+function medirVentana(): Ventana {
+  if (typeof window === "undefined") return { ancho: 1024, alto: 768 };
+  return { ancho: window.innerWidth, alto: window.innerHeight };
 }
 
 export function Tutorial() {
@@ -61,33 +85,37 @@ export function Tutorial() {
 
   const [activo, setActivo] = useState(false);
   const [indice, setIndice] = useState(0);
+
   /*
     El recuadro se guarda junto al id del paso al que pertenece, y no suelto.
-
-    Eso resuelve dos cosas de una. Primero, no hace falta limpiarlo al cambiar
-    de paso, que era un setState sincronico dentro de un efecto. Y segundo, y
-    mas importante, arregla un parpadeo real: al avanzar de un elemento a otro,
-    el foco se quedaba un instante sobre el elemento anterior, porque el
-    recuadro viejo seguia en estado hasta que el nuevo terminaba de medirse.
-    Ahora un recuadro que no corresponde al paso actual simplemente no se usa.
+    Asi no hace falta limpiarlo al cambiar de paso, y se evita un parpadeo real:
+    el foco se quedaba un instante sobre el elemento anterior porque el recuadro
+    viejo seguia en estado hasta que el nuevo terminaba de medirse.
   */
   const [medido, setMedido] = useState<{ id: string; recuadro: Recuadro } | null>(null);
-  const [angosto, setAngosto] = useState(false);
+
+  /*
+    Inicializado con lectura directa, no en un efecto. Antes arrancaba en un
+    valor por defecto y se corregia despues, asi que el primer render de la
+    tarjeta usaba la colocacion de escritorio y saltaba. En un telefono eso
+    significaba una tarjeta de 380 px anclada a un elemento, fuera de pantalla,
+    por un instante. El componente solo se monta en el cliente, asi que leer
+    window aca es seguro.
+  */
+  const [ventana, setVentana] = useState<Ventana>(medirVentana);
 
   const tarjetaRef = useRef<HTMLDivElement>(null);
   const paso = PASOS_TUTORIAL[indice];
   const ultimo = indice === PASOS_TUTORIAL.length - 1;
+  const angosto = ventana.ancho < 640;
 
   // Derivado, no almacenado: si la medicion es de otro paso, no vale.
   const recuadro = medido && paso && medido.id === paso.id ? medido.recuadro : null;
 
-  /* Se consulta una vez y se guarda: usarlo en el render directo obligaria a
-     leer el ancho en cada medicion. */
   useEffect(() => {
-    const medir = () => setAngosto(window.innerWidth < 640);
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
+    const alRedimensionar = () => setVentana(medirVentana());
+    window.addEventListener("resize", alRedimensionar);
+    return () => window.removeEventListener("resize", alRedimensionar);
   }, []);
 
   const cerrar = useCallback((completado: boolean) => {
@@ -101,11 +129,7 @@ export function Tutorial() {
     setActivo(true);
   }, []);
 
-  /*
-    Arranque automatico, solo la primera vez y solo en el resumen. Se espera un
-    momento para que la pagina haya pintado: abrirlo sobre una pantalla a medio
-    renderizar mide un elemento que todavia se esta moviendo.
-  */
+  /* Arranque automatico, solo la primera vez y solo en el resumen. */
   useEffect(() => {
     if (ruta !== "/admin") return;
     if (leerEstado().completado) return;
@@ -113,11 +137,7 @@ export function Tutorial() {
     return () => clearTimeout(t);
   }, [ruta]);
 
-  /*
-    Navegacion entre secciones. El recorrido cruza rutas, asi que cuando el paso
-    vive en otra pantalla se empuja la ruta y el anclaje reintenta hasta que el
-    elemento aparece.
-  */
+  /* El recorrido cruza rutas: si el paso vive en otra pantalla, se navega. */
   useEffect(() => {
     if (!activo || !paso) return;
     if (paso.ruta !== ruta) router.push(paso.ruta as "/admin");
@@ -126,13 +146,11 @@ export function Tutorial() {
   /* Anclaje: busca el elemento, lo trae a la vista y mide su recuadro. */
   useEffect(() => {
     if (!activo || !paso) return;
-
-    // Sin ancla el paso va centrado, y el recuadro derivado ya da null: no hay
-    // nada que limpiar ni que medir.
     if (!paso.ancla) return;
     if (paso.ruta !== ruta) return;
 
     const idPaso = paso.id;
+    const esAngosto = angosto;
     let cancelado = false;
     let intentos = 0;
 
@@ -149,17 +167,25 @@ export function Tutorial() {
       const el = document.querySelector(`[data-tour="${paso.ancla}"]`);
 
       if (el) {
-        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        /*
+          En movil el elemento se lleva al tercio superior y no al centro,
+          porque la hoja inferior ocupa la mitad baja de la pantalla y taparia
+          justo lo que se esta senalando.
+        */
+        const r = el.getBoundingClientRect();
+        const objetivo = esAngosto
+          ? window.innerHeight * 0.2
+          : window.innerHeight / 2 - r.height / 2;
+        window.scrollBy({ top: r.top - objetivo, behavior: "smooth" });
+
         medir(el);
-        // Se vuelve a medir cuando el scroll suave termino de moverse.
-        setTimeout(() => !cancelado && medir(el), 350);
+        setTimeout(() => !cancelado && medir(el), 400);
         return;
       }
 
       intentos += 1;
-      // Si se agotan los intentos no se hace nada: al no haber medicion para
-      // este paso, el recuadro derivado queda null y la tarjeta va centrada con
-      // el mismo texto. Un recorrido a medias es mejor que uno trabado.
+      // Agotados los intentos no se hace nada: sin medicion para este paso, la
+      // tarjeta cae a hoja inferior con el mismo texto.
       if (intentos < INTENTOS_ANCLA) setTimeout(buscar, ESPERA_ANCLA);
     };
 
@@ -167,7 +193,7 @@ export function Tutorial() {
     return () => {
       cancelado = true;
     };
-  }, [activo, paso, ruta]);
+  }, [activo, paso, ruta, angosto]);
 
   /* El recuadro sigue al elemento si la pagina se mueve o cambia de tamano. */
   useEffect(() => {
@@ -226,61 +252,149 @@ export function Tutorial() {
     if (activo) tarjetaRef.current?.focus();
   }, [activo, indice]);
 
-  if (!activo || !paso) {
-    return (
-      <button
-        type="button"
-        onClick={abrir}
-        className="rounded-md border border-primario px-3 py-2 text-sm font-semibold text-primario transition-colors hover:bg-primario hover:text-blanco print:hidden"
-      >
-        Tutorial
-      </button>
-    );
-  }
-
   /*
-    Posicion de la tarjeta. Bajo 640 px se ancla al borde inferior: en un
-    telefono, una tarjeta flotando junto al elemento tapa justamente lo que se
-    esta explicando. En escritorio va debajo del elemento, o arriba si no cabe,
-    y se recorta a la ventana para no salirse por el costado.
+    Un solo boton en el encabezado, que abre y cierra. Antes eran dos textos
+    distintos, y "Cerrar tutorial" al lado de "Cerrar sesion" ocupaba un ancho
+    que en pantalla chica empujaba el encabezado a tres lineas.
   */
-  const estiloTarjeta: React.CSSProperties = angosto
-    ? { left: 12, right: 12, bottom: 12 }
-    : recuadro
-      ? (() => {
-          const cabeAbajo = recuadro.top + recuadro.height + 260 < window.innerHeight;
-          const izquierda = Math.min(
-            Math.max(12, recuadro.left + recuadro.width / 2 - ANCHO_TARJETA / 2),
-            window.innerWidth - ANCHO_TARJETA - 12,
-          );
-          return cabeAbajo
-            ? { top: recuadro.top + recuadro.height + MARGEN_FOCO + 12, left: izquierda, width: ANCHO_TARJETA }
-            : { bottom: window.innerHeight - recuadro.top + MARGEN_FOCO + 12, left: izquierda, width: ANCHO_TARJETA };
-        })()
-      : {
-          top: "50%",
-          left: "50%",
+  const boton = (
+    <button
+      type="button"
+      onClick={() => (activo ? cerrar(false) : abrir())}
+      aria-pressed={activo}
+      className="shrink-0 rounded-md border border-primario px-3 py-2 text-sm font-semibold text-primario transition-colors hover:bg-primario hover:text-blanco print:hidden"
+    >
+      Tutorial
+    </button>
+  );
+
+  if (!activo || !paso) return boton;
+
+  /* Colocacion: hoja en movil, junto al elemento si cabe, centrada si no hay
+     ancla, y hoja como respaldo cuando no hay espacio suficiente. */
+  const colocacion: Colocacion = (() => {
+    if (angosto) return { modo: "hoja" };
+    if (!recuadro) return { modo: "centrada" };
+
+    const espacioAbajo = ventana.alto - (recuadro.top + recuadro.height + MARGEN_FOCO) - 16;
+    const espacioArriba = recuadro.top - MARGEN_FOCO - 16;
+
+    const izquierda = Math.min(
+      Math.max(12, recuadro.left + recuadro.width / 2 - ANCHO_TARJETA / 2),
+      Math.max(12, ventana.ancho - ANCHO_TARJETA - 12),
+    );
+
+    if (espacioAbajo >= ALTO_MINIMO_TARJETA) {
+      return {
+        modo: "anclada",
+        estilo: {
+          top: recuadro.top + recuadro.height + MARGEN_FOCO + 12,
+          left: izquierda,
           width: ANCHO_TARJETA,
-          transform: "translate(-50%, -50%)",
-        };
+          maxHeight: espacioAbajo,
+        },
+      };
+    }
+
+    if (espacioArriba >= ALTO_MINIMO_TARJETA) {
+      return {
+        modo: "anclada",
+        estilo: {
+          bottom: ventana.alto - recuadro.top + MARGEN_FOCO + 12,
+          left: izquierda,
+          width: ANCHO_TARJETA,
+          maxHeight: espacioArriba,
+        },
+      };
+    }
+
+    // No cabe ni arriba ni abajo: hoja inferior. El foco sobre el elemento se
+    // mantiene, que es lo que importa.
+    return { modo: "hoja" };
+  })();
 
   const velo = "fixed bg-negro/55 print:hidden";
 
-  return (
+  const contenido = (
     <>
-      <button
-        type="button"
-        onClick={() => cerrar(false)}
-        className="rounded-md border border-primario px-3 py-2 text-sm font-semibold text-primario print:hidden"
-      >
-        Cerrar tutorial
-      </button>
+      {/* Lo que el lector de pantalla anuncia al cambiar de paso. */}
+      <p aria-live="polite" className="sr-only">
+        Paso {indice + 1} de {PASOS_TUTORIAL.length}: {paso.titulo}
+      </p>
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-bold tracking-widest text-primario uppercase">
+          Paso {indice + 1} de {PASOS_TUTORIAL.length}
+        </p>
+        <button
+          type="button"
+          onClick={() => cerrar(false)}
+          className="-m-1 rounded p-1 text-sm font-semibold text-gris-500 hover:text-gris-900"
+        >
+          Salir
+        </button>
+      </div>
+
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-gris-200">
+        <div
+          className="h-full rounded-full bg-primario transition-[width] duration-300"
+          style={{ width: `${((indice + 1) / PASOS_TUTORIAL.length) * 100}%` }}
+        />
+      </div>
+
+      <h2 id="tutorial-titulo" className="mt-3 text-lg font-bold text-gris-900">
+        {paso.titulo}
+      </h2>
+      <p id="tutorial-texto" className="mt-2 text-sm text-gris-700">
+        {paso.texto}
+      </p>
+
+      {paso.ojo ? (
+        <div className="mt-3 flex overflow-hidden rounded-md border border-gris-200">
+          <div className="w-1.5 shrink-0 bg-acento" aria-hidden="true" />
+          <p className="p-2.5 text-sm text-gris-800">{paso.ojo}</p>
+        </div>
+      ) : null}
 
       {/*
-        Cuatro rectangulos alrededor del elemento en vez de una mascara. El
-        hueco queda completamente interactivo, asi que se puede apretar el
-        elemento que se esta explicando.
+        Los controles quedan pegados abajo y sobre fondo opaco: con la tarjeta
+        con scroll propio, si se fueran con el contenido habria que desplazar
+        para encontrar "Siguiente".
       */}
+      <div className="sticky bottom-0 -mx-5 mt-4 flex items-center justify-between gap-3 border-t border-gris-100 bg-blanco px-5 pt-3">
+        <button
+          type="button"
+          onClick={anterior}
+          disabled={indice === 0}
+          className="rounded-md border border-gris-300 px-3 py-2.5 text-sm font-semibold text-gris-800 disabled:opacity-40"
+        >
+          Anterior
+        </button>
+
+        <button
+          type="button"
+          onClick={siguiente}
+          className="rounded-md bg-primario px-5 py-2.5 text-sm font-semibold text-blanco transition-opacity hover:opacity-90"
+        >
+          {ultimo ? "Terminar" : "Siguiente"}
+        </button>
+      </div>
+
+      {/* La ayuda de teclado no aplica en un telefono. */}
+      <p className="mt-3 hidden text-xs text-gris-500 sm:block">
+        Puedes usar las flechas del teclado, y Escape para salir. El elemento
+        destacado sigue funcionando: pruébalo si quieres.
+      </p>
+    </>
+  );
+
+  const claseTarjeta =
+    "rounded-xl border border-gris-200 bg-blanco p-5 shadow-elevada outline-none overflow-y-auto overscroll-contain print:hidden";
+
+  return (
+    <>
+      {boton}
+
       {recuadro ? (
         <div aria-hidden="true" className="fixed inset-0 z-40 print:hidden">
           <div
@@ -289,7 +403,12 @@ export function Tutorial() {
           />
           <div
             className={velo}
-            style={{ top: recuadro.top + recuadro.height + MARGEN_FOCO, left: 0, right: 0, bottom: 0 }}
+            style={{
+              top: recuadro.top + recuadro.height + MARGEN_FOCO,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
           />
           <div
             className={velo}
@@ -310,7 +429,6 @@ export function Tutorial() {
             }}
           />
 
-          {/* Anillo sobre el elemento, sin capturar clics. */}
           <div
             className="pointer-events-none fixed rounded-lg ring-2 ring-primario ring-offset-2 ring-offset-blanco"
             style={{
@@ -322,82 +440,58 @@ export function Tutorial() {
           />
         </div>
       ) : (
-        <div aria-hidden="true" onClick={() => cerrar(false)} className="fixed inset-0 z-40 bg-negro/55 print:hidden" />
+        <div
+          aria-hidden="true"
+          onClick={() => cerrar(false)}
+          className="fixed inset-0 z-40 bg-negro/55 print:hidden"
+        />
       )}
 
-      <div
-        ref={tarjetaRef}
-        role="dialog"
-        aria-labelledby="tutorial-titulo"
-        aria-describedby="tutorial-texto"
-        tabIndex={-1}
-        className="fixed z-50 max-w-[calc(100vw-24px)] rounded-xl border border-gris-200 bg-blanco p-5 shadow-elevada outline-none print:hidden"
-        style={estiloTarjeta}
-      >
-        {/* Lo que el lector de pantalla anuncia al cambiar de paso. */}
-        <p aria-live="polite" className="sr-only">
-          Paso {indice + 1} de {PASOS_TUTORIAL.length}: {paso.titulo}
-        </p>
-
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-bold tracking-widest text-primario uppercase">
-            Paso {indice + 1} de {PASOS_TUTORIAL.length}
-          </p>
-          <button
-            type="button"
-            onClick={() => cerrar(false)}
-            className="-m-1 rounded p-1 text-sm font-semibold text-gris-500 hover:text-gris-900"
-          >
-            Salir
-          </button>
-        </div>
-
-        {/* Barra de avance: dice cuánto queda sin obligar a contar los pasos. */}
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-gris-200">
+      {colocacion.modo === "centrada" ? (
+        /*
+          Centrada con flex y no con translateY(-50%). Con transform, una
+          tarjeta mas alta que el viewport se sale por arriba y su encabezado
+          queda inalcanzable. Con flex mas alto maximo, se ajusta y aparece el
+          scroll.
+        */
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-3 print:hidden">
           <div
-            className="h-full rounded-full bg-primario transition-[width] duration-300"
-            style={{ width: `${((indice + 1) / PASOS_TUTORIAL.length) * 100}%` }}
-          />
-        </div>
-
-        <h2 id="tutorial-titulo" className="mt-3 text-lg font-bold text-gris-900">
-          {paso.titulo}
-        </h2>
-        <p id="tutorial-texto" className="mt-2 text-sm text-gris-700">
-          {paso.texto}
-        </p>
-
-        {paso.ojo ? (
-          <div className="mt-3 flex overflow-hidden rounded-md border border-gris-200">
-            <div className="w-1.5 shrink-0 bg-acento" aria-hidden="true" />
-            <p className="p-2.5 text-sm text-gris-800">{paso.ojo}</p>
+            ref={tarjetaRef}
+            role="dialog"
+            aria-labelledby="tutorial-titulo"
+            aria-describedby="tutorial-texto"
+            tabIndex={-1}
+            className={`pointer-events-auto w-full max-w-[380px] max-h-[calc(100dvh-24px)] ${claseTarjeta}`}
+          >
+            {contenido}
           </div>
-        ) : null}
-
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={anterior}
-            disabled={indice === 0}
-            className="rounded-md border border-gris-300 px-3 py-2 text-sm font-semibold text-gris-800 disabled:opacity-40"
-          >
-            Anterior
-          </button>
-
-          <button
-            type="button"
-            onClick={siguiente}
-            className="rounded-md bg-primario px-4 py-2 text-sm font-semibold text-blanco transition-opacity hover:opacity-90"
-          >
-            {ultimo ? "Terminar" : "Siguiente"}
-          </button>
         </div>
-
-        <p className="mt-3 text-xs text-gris-500">
-          Puedes usar las flechas del teclado, y Escape para salir. El elemento
-          destacado sigue funcionando: pruébalo si quieres.
-        </p>
-      </div>
+      ) : colocacion.modo === "hoja" ? (
+        /* Hoja inferior: ancho completo, esquinas superiores redondeadas, y
+           respeto por el area segura de los telefonos con notch. */
+        <div
+          ref={tarjetaRef}
+          role="dialog"
+          aria-labelledby="tutorial-titulo"
+          aria-describedby="tutorial-texto"
+          tabIndex={-1}
+          className={`fixed bottom-0 left-0 right-0 z-50 max-h-[72dvh] rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${claseTarjeta}`}
+        >
+          {contenido}
+        </div>
+      ) : (
+        <div
+          ref={tarjetaRef}
+          role="dialog"
+          aria-labelledby="tutorial-titulo"
+          aria-describedby="tutorial-texto"
+          tabIndex={-1}
+          className={`fixed z-50 max-w-[calc(100vw-24px)] ${claseTarjeta}`}
+          style={colocacion.estilo}
+        >
+          {contenido}
+        </div>
+      )}
     </>
   );
 }
