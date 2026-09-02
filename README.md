@@ -146,7 +146,14 @@ Nota de contexto: la base de datos de producción ya tiene su schema aplicado, p
 
 ## Despliegue en Vercel
 
-El repositorio se importa en Vercel y queda con despliegue continuo: cada push a `main` va a producción, cada rama levanta un preview. Next.js se detecta solo, no hace falta configurar comandos de build.
+Producción: **https://maquina-qr.vercel.app**
+
+El repositorio está conectado y queda con despliegue continuo: cada push a `main` va a producción, cada rama levanta un preview. Next.js se detecta solo, no hace falta configurar comandos de build.
+
+Dos cosas que confunden la primera vez:
+
+- **Conectar el repositorio no dispara un despliegue.** Si el proyecto se crea antes de conectar el Git, Vercel queda esperando el próximo push y en la pestaña Deployments no aparece nada. No es un error de configuración: no hay nada que publicar hasta que llegue un commit.
+- **Las URL con hash del deployment responden 302, no 200.** Tienen Vercel Authentication activada y redirigen al login de Vercel. Eso es lo correcto y no hay que desactivarlo: la que se comparte es la de producción, que sí es pública.
 
 Variables de entorno que hay que cargar en Vercel, en Production y en Preview:
 
@@ -164,6 +171,21 @@ Con las dos primeras la ficha pública ya funciona. Las otras dos se cargan cuan
 ### El dominio antes de imprimir
 
 `NEXT_PUBLIC_APP_URL` es la base de todos los QR impresos. Si el dominio cambia después de imprimir una flota, las etiquetas quedan apuntando al dominio viejo y hay que reimprimirlas una por una. El dominio definitivo se decide antes de habilitar la impresión masiva de la Etapa 6, no después.
+
+Hoy el dominio de producción es `https://maquina-qr.vercel.app`. Si en algún momento se conecta un dominio propio, hay que decidirlo **antes** de imprimir, porque Vercel mantiene el `.vercel.app` funcionando pero las etiquetas quedarían apuntando a una URL que no es la institucional.
+
+## Verificado en producción
+
+Con `mostrar_costos_publico = false`, medido sobre el HTML que devuelve el servidor y no sobre la interfaz:
+
+| Chequeo | Resultado |
+|---|---|
+| Las 6 fichas del seed | HTTP 200, entre 0,46 s y 1,2 s |
+| `costo_total`, `monto_*`, `numero_factura`, `proveedor`, `subtotal` en el HTML | 0 coincidencias en las 5 fichas con historial |
+| Plan vencido por horómetro (BR-001) | "Excedida en 210 h de uso", sin fecha estimada |
+| Activo sin historial (EN-001) | Muestra el estado vacío |
+| Token inexistente y token con formato inválido | HTTP 404, texto idéntico |
+| Cabecera de la ficha | `noindex, nofollow, nocache` y `Cache-Control: private, no-store` |
 
 ## Pendientes de documentar
 
