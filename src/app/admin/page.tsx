@@ -1,6 +1,8 @@
+import Link from "next/link";
+import { GastoFlota } from "@/components/gasto-flota";
 import { GlifoSemaforo } from "@/components/glifo-semaforo";
 import { TablaCriticidad } from "@/components/tabla-criticidad";
-import { listarPorCriticidad } from "@/lib/datos/reportes";
+import { cargarPanelGasto, listarPorCriticidad } from "@/lib/datos/reportes";
 import { DESCRIPCION_ROL, ETIQUETA_ROL, PERMISOS, perfilHabilitado } from "@/lib/auth";
 import { PRESENTACION_SEMAFORO } from "@/lib/formato";
 import { crearClienteServidor } from "@/lib/supabase/server";
@@ -98,10 +100,11 @@ function Tarjeta({ estado, cantidad }: { estado: Semaforo; cantidad: number }) {
 export default async function AdminPage() {
   // Segunda verificacion de rol, despues de la del layout. Es a proposito: esta
   // pagina podria ser alcanzada por un camino que no pase por el layout.
-  const [perfil, conteos, criticidad] = await Promise.all([
+  const [perfil, conteos, criticidad, gasto] = await Promise.all([
     perfilHabilitado(),
     cargarConteos(),
     listarPorCriticidad(),
+    cargarPanelGasto(),
   ]);
   const puedeOperar = perfil ? PERMISOS.operar.includes(perfil.rol) : false;
 
@@ -174,6 +177,24 @@ export default async function AdminPage() {
         ) : (
           <TablaCriticidad filas={criticidad.filas} puedeOperar={puedeOperar} />
         )}
+      </section>
+
+      {/*
+        El gasto va despues de la criticidad y no antes. El orden es una
+        prioridad declarada: primero lo que hay que hacer hoy, despues lo que
+        costo lo que ya se hizo.
+      */}
+      <section className="space-y-3" data-tour="resumen-gasto">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
+            Gasto de mantención
+          </h2>
+          <Link href="/admin/reportes" className="text-sm font-semibold text-primario hover:underline">
+            Ver reportes completos
+          </Link>
+        </div>
+
+        <GastoFlota panel={gasto} />
       </section>
 
       {perfil ? (

@@ -1,5 +1,6 @@
 import { crearClienteServidor } from "@/lib/supabase/server";
-import type { Semaforo, TipoMantencion } from "@/lib/tipos";
+import { listarTiposActivo } from "@/lib/datos/activos";
+import type { EstadoActivo, Semaforo, TipoMantencion } from "@/lib/tipos";
 
 /*
   Consultas del dashboard y los reportes.
@@ -195,6 +196,238 @@ export async function cargarReportes(periodo: Periodo = {}): Promise<Reportes> {
       clave: o.proveedor_id ?? "interno",
       etiqueta: uno(o.proveedores)?.nombre ?? "Trabajo interno",
     })),
+    error: null,
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Gasto de mantención por máquina, para el resumen y su previsualización.
+   ──────────────────────────────────────────────────────────────────────── */
+
+export type PuntoMes = {
+  /** Clave ordenable, formato AAAA-MM. */
+  mes: string;
+  /** Como se escribe en pantalla: "ene 26". */
+  etiqueta: string;
+  monto: number;
+  acumulado: number;
+};
+
+export type GastoActivo = {
+  activo_id: string;
+  codigo_interno: string;
+  nombre: string;
+  tipo_nombre: string | null;
+  estado: EstadoActivo;
+  ubicacion: string | null;
+  marca: string | null;
+  modelo: string | null;
+  anio: number | null;
+  horometro_actual: number | null;
+  kilometraje_actual: number | null;
+  total: number;
+  ordenes: number;
+  preventiva: number;
+  correctiva: number;
+  ultima_fecha: string | null;
+  serie: PuntoMes[];
+};
+
+export type PanelGasto = {
+  total: number;
+  ordenes: number;
+  /** Ordenados de mayor a menor gasto. Los sin gasto quedan al final. */
+  activos: GastoActivo[];
+  /** Cuantos activos no tienen ninguna orden completada todavia. */
+  sinGasto: number;
+  error: string | null;
+};
+
+const MES_CORTO = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+
+/*
+  La etiqueta se arma con los componentes de la cadena y NO con new Date(iso).
+  Una fecha sin hora se interpreta como UTC, y en Chile eso corre el dia hacia
+  atras: una orden del 1 de marzo aparecería en febrero.
+*/
+function etiquetaMes(mes: string): string {
+  const [anio, m] = mes.split("-");
+  return `${MES_CORTO[Number(m) - 1]} ${anio.slice(2)}`;
+}
+
+/* Suma un mes a una clave AAAA-MM sin pasar por Date. */
+function mesSiguiente(mes: string): string {
+  const [anio, m] = mes.split("-").map(Number);
+  return m === 12
+    ? `${anio + 1}-01`
+    : `${anio}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/*
+  Serie mensual con los huecos rellenos.
+
+  Un mes sin gasto tiene que aparecer con cero y no desaparecer del eje. Si se
+  omitiera, dos meses separados por un año de inactividad quedarían pegados y el
+  gráfico contaría una historia falsa sobre el ritmo del gasto.
+*/
+function armaSerie(movimientos: { mes: string; monto: number }[], tope: number): PuntoMes[] {
+  if (movimientos.length === 0) return [];
+
+  const porMes = new Map<string, number>();
+  for (const m of movimientos) porMes.set(m.mes, (porMes.get(m.mes) ?? 0) + m.monto);
+
+  const claves = [...porMes.keys()].sort();
+  const primero = claves[0];
+  const ultimo = claves[claves.length - 1];
+
+  const completos: string[] = [];
+  for (let cursor = primero; ; cursor = mesSiguiente(cursor)) {
+    completos.push(cursor);
+    if (cursor === ultimo) break;
+    // Cinturon de seguridad: una fecha corrupta no puede colgar el servidor.
+    if (completos.length > 600) break;
+  }
+
+  /*
+    El corte se hace por la cola y el acumulado se calcula ANTES de cortar: si
+    se calculara después, el acumulado del primer mes visible partiría en cero y
+    diría que la máquina no había gastado nada antes, que es falso.
+  */
+  let acumulado = 0;
+  const serie = completos.map((mes) => {
+    acumulado += porMes.get(mes) ?? 0;
+    return { mes, etiqueta: etiquetaMes(mes), monto: porMes.get(mes) ?? 0, acumulado };
+  });
+
+  return serie.slice(-tope);
+}
+
+type OrdenGasto = {
+  activo_id: string | null;
+  tipo: TipoMantencion;
+  costo_total: number | null;
+  fecha_ejecucion: string | null;
+};
+
+type ActivoGasto = {
+  id: string;
+  nombre: string;
+  codigo_interno: string;
+  tipo_codigo: string;
+  estado: EstadoActivo;
+  ubicacion: string | null;
+  marca: string | null;
+  modelo: string | null;
+  anio: number | null;
+  horometro_actual: number | null;
+  kilometraje_actual: number | null;
+};
+
+/*
+  Un viaje por los activos y otro por las órdenes, y el cruce en memoria. Pedir
+  las órdenes anidadas dentro de cada activo traería la lista completa de campos
+  de la orden por cada fila, y de esto solo se necesitan cuatro columnas.
+
+  Límite conocido: 5000 órdenes completadas, igual que cargarReportes. Con una
+  flota agrícola son varios años. Cuando se pase, esto se convierte en una vista
+  agregada por mes en la base.
+*/
+export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> {
+  const supabase = await crearClienteServidor();
+
+  const [resActivos, resOrdenes, tipos] = await Promise.all([
+    supabase
+      .from("activos")
+      .select(
+        "id, nombre, codigo_interno, tipo_codigo, estado, ubicacion, marca, modelo, anio, horometro_actual, kilometraje_actual",
+      )
+      .order("codigo_interno"),
+    supabase
+      .from("ordenes_mantencion")
+      .select("activo_id, tipo, costo_total, fecha_ejecucion")
+      .eq("estado", "completada")
+      .not("fecha_ejecucion", "is", null)
+      .limit(5000),
+    listarTiposActivo(),
+  ]);
+
+  const vacio: PanelGasto = { total: 0, ordenes: 0, activos: [], sinGasto: 0, error: null };
+
+  const error = resActivos.error?.message ?? resOrdenes.error?.message ?? null;
+  if (error) {
+    console.error("No pude leer el gasto de la flota:", error);
+    return { ...vacio, error };
+  }
+
+  const activos = (resActivos.data ?? []) as ActivoGasto[];
+  const ordenes = (resOrdenes.data ?? []) as OrdenGasto[];
+  const nombreTipo = new Map(tipos.map((t) => [t.codigo, t.nombre]));
+
+  const porActivo = new Map<
+    string,
+    { total: number; ordenes: number; preventiva: number; correctiva: number; ultima: string | null; movimientos: { mes: string; monto: number }[] }
+  >();
+
+  for (const o of ordenes) {
+    if (!o.activo_id || !o.fecha_ejecucion) continue;
+    const monto = Number(o.costo_total ?? 0);
+    const actual =
+      porActivo.get(o.activo_id) ??
+      { total: 0, ordenes: 0, preventiva: 0, correctiva: 0, ultima: null, movimientos: [] };
+
+    actual.total += monto;
+    actual.ordenes += 1;
+    if (o.tipo === "preventiva") actual.preventiva += monto;
+    if (o.tipo === "correctiva") actual.correctiva += monto;
+    if (!actual.ultima || o.fecha_ejecucion > actual.ultima) actual.ultima = o.fecha_ejecucion;
+    actual.movimientos.push({ mes: o.fecha_ejecucion.slice(0, 7), monto });
+
+    porActivo.set(o.activo_id, actual);
+  }
+
+  const filas: GastoActivo[] = activos.map((a) => {
+    const g = porActivo.get(a.id);
+    return {
+      activo_id: a.id,
+      codigo_interno: a.codigo_interno,
+      nombre: a.nombre,
+      tipo_nombre: nombreTipo.get(a.tipo_codigo) ?? null,
+      estado: a.estado,
+      ubicacion: a.ubicacion,
+      marca: a.marca,
+      modelo: a.modelo,
+      anio: a.anio,
+      horometro_actual: a.horometro_actual,
+      kilometraje_actual: a.kilometraje_actual,
+      total: g?.total ?? 0,
+      ordenes: g?.ordenes ?? 0,
+      preventiva: g?.preventiva ?? 0,
+      correctiva: g?.correctiva ?? 0,
+      ultima_fecha: g?.ultima ?? null,
+      serie: armaSerie(g?.movimientos ?? [], mesesVisibles),
+    };
+  });
+
+  filas.sort((a, b) => b.total - a.total || a.codigo_interno.localeCompare(b.codigo_interno, "es"));
+
+  return {
+    total: filas.reduce((s, f) => s + f.total, 0),
+    ordenes: filas.reduce((s, f) => s + f.ordenes, 0),
+    activos: filas,
+    sinGasto: filas.filter((f) => f.ordenes === 0).length,
     error: null,
   };
 }

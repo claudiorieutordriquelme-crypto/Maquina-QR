@@ -94,6 +94,15 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     ojo: "Muestra los 12 más críticos. Si quedan más, lo dice al pie; el resto se ve en Activos filtrando por semáforo.",
   },
   {
+    id: "gasto",
+    ruta: "/admin",
+    ancla: "resumen-gasto",
+    titulo: "Cuánto cuesta mantener la flota",
+    texto:
+      "El gasto total y cómo se reparte entre máquinas. El botón del ojo abre el resumen de esa máquina: sus datos, cuánto lleva gastado y el gráfico de gasto mes a mes y acumulado.",
+    ojo: "Solo cuenta mantenciones completadas y con fecha de ejecución. Una orden programada todavía no costó nada.",
+  },
+  {
     id: "activos-lista",
     ruta: "/admin/activos",
     ancla: "activos-lista",
