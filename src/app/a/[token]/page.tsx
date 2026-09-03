@@ -90,7 +90,7 @@ export default async function FichaPublicaPage({ params }: { params: Promise<{ t
 
   return (
     <main className="min-h-dvh">
-      <FichaPublicaVista ficha={resultado} />
+      <FichaPublicaVista ficha={resultado} token={token} />
     </main>
   );
 }

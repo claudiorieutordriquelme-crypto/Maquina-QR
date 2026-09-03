@@ -1,6 +1,9 @@
 import { crearClienteServidor } from "@/lib/supabase/server";
 import { listarTiposActivo } from "@/lib/datos/activos";
+import { armaSerieMensual, mesDeFecha, type PuntoMes } from "@/lib/serie-mensual";
 import type { EstadoActivo, Semaforo, TipoMantencion } from "@/lib/tipos";
+
+export type { PuntoMes } from "@/lib/serie-mensual";
 
 /*
   Consultas del dashboard y los reportes.
@@ -204,15 +207,6 @@ export async function cargarReportes(periodo: Periodo = {}): Promise<Reportes> {
    Gasto de mantención por máquina, para el resumen y su previsualización.
    ──────────────────────────────────────────────────────────────────────── */
 
-export type PuntoMes = {
-  /** Clave ordenable, formato AAAA-MM. */
-  mes: string;
-  /** Como se escribe en pantalla: "ene 26". */
-  etiqueta: string;
-  monto: number;
-  acumulado: number;
-};
-
 export type GastoActivo = {
   activo_id: string;
   codigo_interno: string;
@@ -231,6 +225,8 @@ export type GastoActivo = {
   correctiva: number;
   ultima_fecha: string | null;
   serie: PuntoMes[];
+  /** Meses anteriores a la ventana visible del grafico. Se declara en pantalla. */
+  mesesRecortados: number;
 };
 
 export type PanelGasto = {
@@ -242,78 +238,6 @@ export type PanelGasto = {
   sinGasto: number;
   error: string | null;
 };
-
-const MES_CORTO = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-];
-
-/*
-  La etiqueta se arma con los componentes de la cadena y NO con new Date(iso).
-  Una fecha sin hora se interpreta como UTC, y en Chile eso corre el dia hacia
-  atras: una orden del 1 de marzo aparecería en febrero.
-*/
-function etiquetaMes(mes: string): string {
-  const [anio, m] = mes.split("-");
-  return `${MES_CORTO[Number(m) - 1]} ${anio.slice(2)}`;
-}
-
-/* Suma un mes a una clave AAAA-MM sin pasar por Date. */
-function mesSiguiente(mes: string): string {
-  const [anio, m] = mes.split("-").map(Number);
-  return m === 12
-    ? `${anio + 1}-01`
-    : `${anio}-${String(m + 1).padStart(2, "0")}`;
-}
-
-/*
-  Serie mensual con los huecos rellenos.
-
-  Un mes sin gasto tiene que aparecer con cero y no desaparecer del eje. Si se
-  omitiera, dos meses separados por un año de inactividad quedarían pegados y el
-  gráfico contaría una historia falsa sobre el ritmo del gasto.
-*/
-function armaSerie(movimientos: { mes: string; monto: number }[], tope: number): PuntoMes[] {
-  if (movimientos.length === 0) return [];
-
-  const porMes = new Map<string, number>();
-  for (const m of movimientos) porMes.set(m.mes, (porMes.get(m.mes) ?? 0) + m.monto);
-
-  const claves = [...porMes.keys()].sort();
-  const primero = claves[0];
-  const ultimo = claves[claves.length - 1];
-
-  const completos: string[] = [];
-  for (let cursor = primero; ; cursor = mesSiguiente(cursor)) {
-    completos.push(cursor);
-    if (cursor === ultimo) break;
-    // Cinturon de seguridad: una fecha corrupta no puede colgar el servidor.
-    if (completos.length > 600) break;
-  }
-
-  /*
-    El corte se hace por la cola y el acumulado se calcula ANTES de cortar: si
-    se calculara después, el acumulado del primer mes visible partiría en cero y
-    diría que la máquina no había gastado nada antes, que es falso.
-  */
-  let acumulado = 0;
-  const serie = completos.map((mes) => {
-    acumulado += porMes.get(mes) ?? 0;
-    return { mes, etiqueta: etiquetaMes(mes), monto: porMes.get(mes) ?? 0, acumulado };
-  });
-
-  return serie.slice(-tope);
-}
 
 type OrdenGasto = {
   activo_id: string | null;
@@ -393,13 +317,15 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
     if (o.tipo === "preventiva") actual.preventiva += monto;
     if (o.tipo === "correctiva") actual.correctiva += monto;
     if (!actual.ultima || o.fecha_ejecucion > actual.ultima) actual.ultima = o.fecha_ejecucion;
-    actual.movimientos.push({ mes: o.fecha_ejecucion.slice(0, 7), monto });
+    const mes = mesDeFecha(o.fecha_ejecucion);
+    if (mes) actual.movimientos.push({ mes, monto });
 
     porActivo.set(o.activo_id, actual);
   }
 
   const filas: GastoActivo[] = activos.map((a) => {
     const g = porActivo.get(a.id);
+    const serie = armaSerieMensual(g?.movimientos ?? [], mesesVisibles);
     return {
       activo_id: a.id,
       codigo_interno: a.codigo_interno,
@@ -417,7 +343,8 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
       preventiva: g?.preventiva ?? 0,
       correctiva: g?.correctiva ?? 0,
       ultima_fecha: g?.ultima ?? null,
-      serie: armaSerie(g?.movimientos ?? [], mesesVisibles),
+      serie: serie.puntos,
+      mesesRecortados: serie.recortados,
     };
   });
 
@@ -428,6 +355,96 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
     ordenes: filas.reduce((s, f) => s + f.ordenes, 0),
     activos: filas,
     sinGasto: filas.filter((f) => f.ordenes === 0).length,
+    error: null,
+  };
+}
+
+/*
+  Gasto de UNA maquina, para su ficha privada.
+
+  Existe aparte de cargarPanelGasto y no reusa su resultado a proposito: el
+  panel trae la flota completa con la serie de cada maquina, y la ficha de un
+  activo no tiene por que pagar por las otras treinta y nueve.
+
+  Los filtros son EXACTAMENTE los mismos que usan cargarPanelGasto y
+  cargarReportes: estado completada y fecha_ejecucion no nula. Si divergieran,
+  la misma maquina mostraria un total distinto segun por donde se entre, y ese
+  es el defecto que hace que la gente deje de creerle al sistema.
+*/
+export type GastoDeActivo = {
+  total: number;
+  ordenes: number;
+  preventiva: number;
+  correctiva: number;
+  ultima_fecha: string | null;
+  serie: PuntoMes[];
+  mesesRecortados: number;
+  error: string | null;
+};
+
+export async function cargarGastoDeActivo(
+  activoId: string,
+  mesesVisibles = 24,
+): Promise<GastoDeActivo> {
+  const supabase = await crearClienteServidor();
+
+  const { data, error } = await supabase
+    .from("ordenes_mantencion")
+    .select("tipo, costo_total, fecha_ejecucion")
+    .eq("activo_id", activoId)
+    .eq("estado", "completada")
+    .not("fecha_ejecucion", "is", null)
+    .limit(5000);
+
+  const vacio: GastoDeActivo = {
+    total: 0,
+    ordenes: 0,
+    preventiva: 0,
+    correctiva: 0,
+    ultima_fecha: null,
+    serie: [],
+    mesesRecortados: 0,
+    error: null,
+  };
+
+  if (error) {
+    console.error("No pude leer el gasto del activo:", error.message);
+    return { ...vacio, error: error.message };
+  }
+
+  const ordenes = (data ?? []) as {
+    tipo: TipoMantencion;
+    costo_total: number | null;
+    fecha_ejecucion: string | null;
+  }[];
+
+  const movimientos: { mes: string; monto: number }[] = [];
+  let total = 0;
+  let preventiva = 0;
+  let correctiva = 0;
+  let ultima: string | null = null;
+
+  for (const o of ordenes) {
+    if (!o.fecha_ejecucion) continue;
+    const monto = Number(o.costo_total ?? 0);
+    total += monto;
+    if (o.tipo === "preventiva") preventiva += monto;
+    if (o.tipo === "correctiva") correctiva += monto;
+    if (!ultima || o.fecha_ejecucion > ultima) ultima = o.fecha_ejecucion;
+    const mes = mesDeFecha(o.fecha_ejecucion);
+    if (mes) movimientos.push({ mes, monto });
+  }
+
+  const serie = armaSerieMensual(movimientos, mesesVisibles);
+
+  return {
+    total,
+    ordenes: ordenes.length,
+    preventiva,
+    correctiva,
+    ultima_fecha: ultima,
+    serie: serie.puntos,
+    mesesRecortados: serie.recortados,
     error: null,
   };
 }

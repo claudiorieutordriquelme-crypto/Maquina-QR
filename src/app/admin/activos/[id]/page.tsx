@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SerieGasto } from "@/components/graficos/serie-gasto";
 import { PERMISOS, perfilHabilitado } from "@/lib/auth";
 import { listarTiposActivo, obtenerDetalleActivo } from "@/lib/datos/activos";
+import { cargarGastoDeActivo } from "@/lib/datos/reportes";
 import {
   ETIQUETA_ESTADO_ACTIVO,
   PRESENTACION_SEMAFORO,
@@ -17,11 +19,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ActivoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ activo, tipo_nombre, planes, lecturas, ordenes }, perfil, tipos] = await Promise.all([
-    obtenerDetalleActivo(id),
-    perfilHabilitado(),
-    listarTiposActivo(),
-  ]);
+  const [{ activo, tipo_nombre, planes, lecturas, ordenes }, perfil, tipos, gasto] =
+    await Promise.all([
+      obtenerDetalleActivo(id),
+      perfilHabilitado(),
+      listarTiposActivo(),
+      cargarGastoDeActivo(id),
+    ]);
 
   if (!activo) notFound();
 
@@ -152,6 +156,77 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
               );
             })}
           </ul>
+        )}
+      </section>
+
+      {/*
+        El gasto va despues de los planes y antes de las lecturas. El orden de
+        esta ficha es: que le toca, cuanto ha costado, y como se ha usado.
+      */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
+            Gasto de mantención
+          </h2>
+          <Link
+            href="/admin/reportes"
+            className="text-sm font-semibold text-primario hover:underline"
+          >
+            Comparar con la flota
+          </Link>
+        </div>
+
+        {gasto.error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-acento p-4 text-sm font-medium text-gris-900"
+          >
+            No pude leer el gasto de esta máquina. Es un problema de lectura, no
+            que no tenga mantenciones: avisa a quien administra el sistema.
+          </p>
+        ) : gasto.ordenes === 0 ? (
+          <p className="rounded-lg border border-gris-200 p-4 text-sm text-gris-600">
+            Esta máquina no tiene mantenciones completadas, así que todavía no ha
+            costado nada. Una orden programada no cuenta hasta que se completa y
+            se le pone fecha de ejecución.
+          </p>
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-gris-200 p-4">
+                <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                  Gasto total
+                </dt>
+                <dd className="mt-0.5 text-xl font-bold text-gris-900">
+                  {formateaPesos(gasto.total)}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-gris-200 p-4">
+                <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                  Mantenciones
+                </dt>
+                <dd className="mt-0.5 text-xl font-bold text-gris-900">{gasto.ordenes}</dd>
+              </div>
+              <div className="rounded-lg border border-gris-200 p-4">
+                <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                  Preventiva
+                </dt>
+                <dd className="mt-0.5 text-sm font-semibold text-gris-900">
+                  {formateaPesos(gasto.preventiva)}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-gris-200 p-4">
+                <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                  Correctiva
+                </dt>
+                <dd className="mt-0.5 text-sm font-semibold text-gris-900">
+                  {formateaPesos(gasto.correctiva)}
+                </dd>
+              </div>
+            </dl>
+
+            <SerieGasto puntos={gasto.serie} mesesRecortados={gasto.mesesRecortados} />
+          </>
         )}
       </section>
 

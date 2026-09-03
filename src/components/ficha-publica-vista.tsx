@@ -1,3 +1,5 @@
+import { SerieGasto } from "@/components/graficos/serie-gasto";
+import { armaSerieMensual, mesDeFecha } from "@/lib/serie-mensual";
 import type { EstadoMantencion, FichaPublica, OrdenHistorial, Semaforo } from "@/lib/tipos";
 import {
   ETIQUETA_ESTADO_ACTIVO,
@@ -206,8 +208,32 @@ function OrdenHistorialItem({ orden, muestraCostos }: { orden: OrdenHistorial; m
   );
 }
 
-export function FichaPublicaVista({ ficha }: { ficha: FichaPublica }) {
+export function FichaPublicaVista({ ficha, token }: { ficha: FichaPublica; token: string }) {
   const { activo, estado_mantencion, historial, muestra_costos } = ficha;
+
+  /*
+    Serie de gasto armada desde el historial que la base ya mando, sin ninguna
+    consulta extra. Con los costos ocultos, costo_total simplemente no viene y
+    conCosto queda vacio: el filtro es de la base y aca no hay nada que decidir.
+
+    El calculo es sobre lo que hay EN ESTA FICHA. El historial publico esta
+    acotado por parametros_calculo.historial_publico_limite, asi que una maquina
+    con mucha vida puede tener gasto anterior que no aparece. El grafico lo dice
+    en su advertencia en vez de presentar un acumulado parcial como si fuera el
+    total de la maquina.
+  */
+  const conCosto = muestra_costos
+    ? historial.filter(
+        (o) => o.costo_total !== null && o.costo_total !== undefined && o.fecha_ejecucion,
+      )
+    : [];
+  const totalHistorial = conCosto.reduce((s, o) => s + Number(o.costo_total ?? 0), 0);
+  const serie = armaSerieMensual(
+    conCosto
+      .map((o) => ({ mes: mesDeFecha(o.fecha_ejecucion), monto: Number(o.costo_total ?? 0) }))
+      .filter((m): m is { mes: string; monto: number } => m.mes !== null),
+    24,
+  );
 
   const identificacion = [activo.codigo_interno, activo.patente].filter(Boolean).join(" · ");
   const fabricacion = [activo.marca, activo.modelo, activo.anio ? String(activo.anio) : null]
@@ -288,6 +314,73 @@ export function FichaPublicaVista({ ficha }: { ficha: FichaPublica }) {
             </ul>
           </details>
         )}
+      </section>
+
+      {/*
+        Gasto de mantencion. SOLO aparece cuando la base dice muestra_costos, o
+        sea cuando alguien encendio a proposito el interruptor de costos
+        publicos en Configuracion.
+
+        Esto NO amplia lo que la ficha publica: cuando ese interruptor esta
+        encendido, cada orden del historial de mas abajo ya trae su costo total
+        impreso. Este bloque agrega una lectura de esos mismos numeros, no un
+        dato nuevo. Y con el interruptor apagado, get_ficha_publica ni siquiera
+        manda los montos, asi que aca no hay nada que ocultar en el frontend: el
+        filtro ocurre en la base, que es donde corresponde.
+      */}
+      {muestra_costos && serie.puntos.length > 0 ? (
+        <section className="mt-8 border-t border-gris-200 px-5 pt-5">
+          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
+            Gasto de mantención
+          </h2>
+
+          <dl className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-gris-200 p-4">
+              <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                Total en esta ficha
+              </dt>
+              <dd className="mt-0.5 text-xl font-bold text-gris-900">
+                {formateaPesos(totalHistorial)}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-gris-200 p-4">
+              <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                Mantenciones
+              </dt>
+              <dd className="mt-0.5 text-xl font-bold text-gris-900">{conCosto.length}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-5">
+            <SerieGasto
+              puntos={serie.puntos}
+              mesesRecortados={serie.recortados}
+              advertencia="Calculado sobre las mantenciones que aparecen en esta ficha, que muestra las más recientes. Si la máquina tiene historial más antiguo, no está sumado acá."
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {/*
+        Puente a la ficha privada. El enlace no revela nada: el token ya viene en
+        la direccion que esta persona esta mirando. Del otro lado hay sesion, y
+        quien no la tenga aterriza en el login.
+      */}
+      <section className="mt-8 border-t border-gris-200 px-5 pt-5">
+        <a
+          href={`/admin/qr/${token}`}
+          className="inline-flex items-center gap-2 rounded-lg border border-gris-300 px-4 py-3 text-sm font-semibold text-gris-800 transition-colors hover:border-primario hover:text-primario"
+        >
+          <svg viewBox="0 0 20 20" className="size-4 shrink-0 fill-current" aria-hidden="true">
+            <path d="M10 3a7 7 0 0 1 6.3 4 7 7 0 0 1-12.6 0A7 7 0 0 1 10 3zm0 2a5 5 0 0 0-4.2 2.4A5 5 0 0 0 10 9.8a5 5 0 0 0 4.2-2.4A5 5 0 0 0 10 5z" />
+            <path d="M3 12h2v3h3v2H4a1 1 0 0 1-1-1v-4zM15 12h2v4a1 1 0 0 1-1 1h-4v-2h3v-3z" />
+          </svg>
+          Ver el detalle completo
+        </a>
+        <p className="mt-2 text-xs text-gris-500">
+          Para quienes trabajan acá. Pide iniciar sesión y abre la ficha interna
+          de esta misma máquina, con su gasto y su historial completo.
+        </p>
       </section>
 
       <footer className="mt-8 border-t border-gris-200 px-5 pt-5 text-xs text-gris-500">

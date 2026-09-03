@@ -1,5 +1,5 @@
 import { formateaPesos } from "@/lib/formato";
-import type { PuntoMes } from "@/lib/datos/reportes";
+import type { PuntoMes } from "@/lib/serie-mensual";
 
 /*
   Gasto mensual y gasto acumulado de una maquina.
@@ -90,7 +90,19 @@ function Columnas({
   );
 }
 
-export function SerieGasto({ puntos }: { puntos: PuntoMes[] }) {
+export function SerieGasto({
+  puntos,
+  mesesRecortados = 0,
+  advertencia,
+}: {
+  puntos: PuntoMes[];
+  /** Meses anteriores a la ventana visible. Un recorte que no se declara se
+      lee como "esto es todo el historial". */
+  mesesRecortados?: number;
+  /** Aviso sobre el origen de los datos. La ficha publica lo usa para decir que
+      calcula sobre un historial acotado y no sobre la vida completa. */
+  advertencia?: string;
+}) {
   if (puntos.length === 0) {
     return (
       <p className="rounded-lg border border-gris-200 p-4 text-sm text-gris-600">
@@ -121,6 +133,8 @@ export function SerieGasto({ puntos }: { puntos: PuntoMes[] }) {
 
   return (
     <div className="space-y-6">
+      {advertencia ? <p className="text-xs text-gris-500">{advertencia}</p> : null}
+
       <Columnas
         puntos={puntos}
         valorDe={(p) => p.monto}
@@ -134,6 +148,13 @@ export function SerieGasto({ puntos }: { puntos: PuntoMes[] }) {
         titulo="Gasto acumulado"
         nota={`Al cierre de ${ultimo.etiqueta} suma ${formateaPesos(ultimo.acumulado)}.`}
       />
+
+      {mesesRecortados > 0 ? (
+        <p className="text-xs text-gris-500">
+          Se muestran los últimos {puntos.length} meses. Quedan {mesesRecortados} más
+          atrás, ya sumados en el acumulado.
+        </p>
+      ) : null}
 
       {/*
         La vista de tabla no es un extra. Es lo que permite leer cualquier mes

@@ -169,7 +169,7 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
           ) : null}
 
           <div className="border-t border-gris-200 pt-5">
-            <SerieGasto puntos={activo.serie} />
+            <SerieGasto puntos={activo.serie} mesesRecortados={activo.mesesRecortados} />
           </div>
 
           <div className="border-t border-gris-200 pt-5">
