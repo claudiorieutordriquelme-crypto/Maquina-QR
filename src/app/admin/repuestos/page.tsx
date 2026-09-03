@@ -2,7 +2,7 @@ import { PERMISOS, perfilHabilitado } from "@/lib/auth";
 import { listarMovimientos, listarRepuestosCompleto } from "@/lib/datos/maestros";
 import { listarProveedores } from "@/lib/datos/mantenciones";
 import { formateaFechaCorta, formateaNumero, formateaPesos } from "@/lib/formato";
-import { CrearRepuesto, EditarRepuesto, RegistrarMovimiento } from "./piezas";
+import { BorrarRepuesto, CrearRepuesto, EditarRepuesto, RegistrarMovimiento } from "./piezas";
 
 export const dynamic = "force-dynamic";
 
@@ -122,8 +122,9 @@ export default async function RepuestosPage() {
                 </dl>
 
                 {puedeAdministrar ? (
-                  <div className="mt-2">
+                  <div className="mt-2 flex flex-wrap items-start gap-4">
                     <EditarRepuesto repuesto={r} proveedores={proveedores} />
+                    <BorrarRepuesto id={r.id} nombre={r.nombre} />
                   </div>
                 ) : null}
               </div>

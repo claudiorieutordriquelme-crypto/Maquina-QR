@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import { Dialogo } from "@/components/dialogo";
 import { SerieGasto } from "@/components/graficos/serie-gasto";
 import {
   ETIQUETA_ESTADO_ACTIVO,
@@ -49,42 +50,24 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   );
 }
 
+/*
+  El comportamiento de teclado, foco y scroll vive en components/dialogo. Antes
+  estaba aca a mano, y le faltaban la trampa de foco, la devolucion del foco al
+  cerrar, el bloqueo del scroll de fondo, y detener la propagacion del Escape,
+  que ademas de cerrar el modal sacaba al usuario del tutorial.
+*/
 function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void }) {
-  const caja = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    caja.current?.focus();
-    const alPulsar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        alCerrar();
-      }
-    };
-    window.addEventListener("keydown", alPulsar);
-    return () => window.removeEventListener("keydown", alPulsar);
-  }, [alCerrar]);
-
   const sinDato = "Sin registrar";
   const equipo = [activo.marca, activo.modelo, activo.anio ? String(activo.anio) : null]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 print:hidden">
-      <div
-        aria-hidden="true"
-        onClick={alCerrar}
-        className="absolute inset-0 bg-negro/55"
-      />
-
-      <div
-        ref={caja}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-previsualizacion"
-        tabIndex={-1}
-        className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-xl border border-gris-200 bg-blanco shadow-elevada outline-none sm:rounded-xl"
-      >
+    <Dialogo
+      titulo={`Resumen de ${activo.codigo_interno} ${activo.nombre}`}
+      alCerrar={alCerrar}
+    >
+      <>
         {/* El encabezado queda fijo: la ficha es larga y el boton de cerrar no
             puede quedar arriba fuera de alcance al bajar. */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gris-200 bg-blanco px-5 py-4">
@@ -111,14 +94,8 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
             <Dato etiqueta="Estado" valor={ETIQUETA_ESTADO_ACTIVO[activo.estado]} />
             <Dato etiqueta="Ubicación" valor={activo.ubicacion || sinDato} />
             <Dato etiqueta="Equipo" valor={equipo || sinDato} />
-            <Dato
-              etiqueta="Horómetro"
-              valor={
-                activo.horometro_actual === null
-                  ? sinDato
-                  : `${formateaHoras(activo.horometro_actual)} h`
-              }
-            />
+            {/* formateaHoras ya agrega la unidad. Concatenar otra daba "1.200 h h". */}
+            <Dato etiqueta="Horómetro" valor={formateaHoras(activo.horometro_actual)} />
             <Dato
               etiqueta="Kilometraje"
               valor={
@@ -127,6 +104,7 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
                   : `${formateaNumero(activo.kilometraje_actual)} km`
               }
             />
+            <Dato etiqueta="Código" valor={activo.codigo_interno} />
           </dl>
 
           <div className="grid grid-cols-2 gap-3 border-t border-gris-200 pt-5 sm:grid-cols-4">
@@ -139,8 +117,14 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
               </p>
             </div>
             <div>
+              {/*
+                "Completadas" y no "Mantenciones". La ficha del activo tiene otro
+                tile llamado Mantenciones que cuenta TODAS las ordenes, de
+                cualquier estado, y los dos numeros distintos con el mismo
+                nombre hacian que la pantalla se contradijera sola.
+              */}
               <p className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
-                Mantenciones
+                Completadas
               </p>
               <p className="mt-0.5 text-xl font-bold text-gris-900">{activo.ordenes}</p>
             </div>
@@ -160,6 +144,19 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
                 {formateaPesos(activo.correctiva)}
               </p>
             </div>
+            {/* Solo aparece si hay: un tile en cero por una categoria que esta
+                flota no usa es ruido. Pero si hay plata ahi, tiene que verse, o
+                los tres numeros no suman el total. */}
+            {activo.otras > 0 ? (
+              <div>
+                <p className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
+                  Predictiva
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-gris-900">
+                  {formateaPesos(activo.otras)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {activo.ultima_fecha ? (
@@ -181,8 +178,8 @@ function Modal({ activo, alCerrar }: { activo: GastoActivo; alCerrar: () => void
             </Link>
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialogo>
   );
 }
 

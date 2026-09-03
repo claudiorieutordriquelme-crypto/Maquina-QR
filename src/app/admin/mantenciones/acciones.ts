@@ -352,3 +352,250 @@ export async function urlFirmada(storagePath: string): Promise<string | null> {
   }
   return data?.signedUrl ?? null;
 }
+
+/*
+  Editar una linea de repuesto ya cargada.
+
+  Se puede hacer con seguridad porque los triggers cubren el UPDATE, no solo el
+  INSERT y el DELETE:
+  - orden_repuestos_consumo dispara con UPDATE OF repuesto_id, cantidad, asi que
+    cambiar la cantidad ajusta el stock por la diferencia. La aplicacion no
+    calcula nada de eso.
+  - orden_repuestos_recalcula_monto dispara con cualquier UPDATE, asi que
+    monto_repuestos de la orden queda al dia, y con el costo_total, que es
+    columna generada.
+
+  Antes la unica via era eliminar la linea y volver a cargarla, y eso dejaba dos
+  movimientos extra en el libro de stock por cada correccion de un digito.
+*/
+export async function actualizarLinea(_prev: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
+  try {
+    await requiereRol(PERMISOS.operar);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "No autorizado." };
+  }
+
+  const id = texto(datos, "id");
+  const orden_id = texto(datos, "orden_id");
+  const cantidad = numero(datos, "cantidad");
+  const costo_unitario = numero(datos, "costo_unitario");
+
+  if (!id) return { error: "Falta la línea." };
+  if (cantidad === null || cantidad <= 0) {
+    return { error: "La cantidad tiene que ser mayor que cero." };
+  }
+  if (costo_unitario === null || costo_unitario < 0) {
+    return { error: "El costo unitario no puede ser negativo." };
+  }
+
+  const supabase = await crearClienteServidor();
+  /*
+    Se filtra tambien por orden_id: sin eso, un id de linea de otra orden puesto
+    a mano editaria la linea ajena. RLS comprueba el rol, no la pertenencia.
+  */
+  const { data, error } = await supabase
+    .from("orden_repuestos")
+    .update({ cantidad, costo_unitario })
+    .eq("id", id)
+    .eq("orden_id", orden_id)
+    .select("id");
+
+  if (error) return { error: traduceError(error.code, error.message) };
+  if (!data || data.length === 0) {
+    return { error: "Esa línea ya no existe o no pertenece a esta orden." };
+  }
+
+  revalidatePath(`/admin/mantenciones/${orden_id}`);
+  revalidatePath("/admin/repuestos");
+  revalidatePath("/admin");
+  return { ok: "Línea actualizada. La base ajustó el stock y recalculó el costo." };
+}
+
+/*
+  Borrar un documento adjunto.
+
+  Se borran las DOS cosas y en este orden: primero la fila, despues el objeto en
+  Storage. Si fuera al revés y la fila fallara, quedaria una fila apuntando a un
+  archivo que no existe, y la interfaz ofreceria descargar algo roto. En cambio
+  un objeto que sobrevive a su fila es basura silenciosa que no rompe nada, y si
+  el borrado en Storage falla se registra para poder limpiarlo despues.
+
+  Rol administrar, igual que la politica documentos_delete_admin de la base.
+*/
+export async function eliminarDocumento(_prev: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
+  try {
+    await requiereRol(PERMISOS.administrar);
+  } catch {
+    return { error: "Solo un administrador puede borrar un documento adjunto." };
+  }
+
+  const id = texto(datos, "id");
+  const orden_id = texto(datos, "orden_id");
+  if (!id) return { error: "Falta el documento." };
+
+  const supabase = await crearClienteServidor();
+
+  const { data, error } = await supabase
+    .from("documentos")
+    .delete()
+    .eq("id", id)
+    .eq("entidad_id", orden_id)
+    .select("storage_path, bucket, nombre_archivo");
+
+  if (error) return { error: traduceError(error.code, error.message) };
+  if (!data || data.length === 0) {
+    return { error: "Ese documento ya no existe o no pertenece a esta orden." };
+  }
+
+  const doc = data[0] as { storage_path: string; bucket: string; nombre_archivo: string };
+  const { error: errorStorage } = await supabase.storage
+    .from(doc.bucket ?? "documentos")
+    .remove([doc.storage_path]);
+
+  if (errorStorage) {
+    /*
+      La fila ya no esta, asi que para el usuario el documento desaparecio. Lo
+      que queda es un objeto huerfano en el bucket, y eso se dice en vez de
+      fingir que todo salio bien.
+    */
+    console.error("Borré la fila del documento pero no el archivo:", errorStorage.message);
+    revalidatePath(`/admin/mantenciones/${orden_id}`);
+    return {
+      ok: `Documento "${doc.nombre_archivo}" quitado de la orden. El archivo quedó en el almacenamiento y hay que borrarlo aparte.`,
+    };
+  }
+
+  revalidatePath(`/admin/mantenciones/${orden_id}`);
+  return { ok: `Documento "${doc.nombre_archivo}" borrado.` };
+}
+
+/*
+  Borrar una orden de mantencion completa.
+
+  EL ORDEN DE LAS SENTENCIAS NO ES ESTILO, ES LO QUE HACE QUE FUNCIONE.
+
+  El intento evidente, un DELETE sobre la orden y dejar que la cascada haga el
+  resto, FALLA SIEMPRE en cuanto la orden tiene una linea del maestro. Probado
+  contra la base con rollback: error 23503 sobre
+  movimientos_stock_orden_id_fkey. La razon es que la cascada borra las lineas
+  dentro de la misma sentencia, el trigger tg_consumo_desde_linea inserta el
+  movimiento de reversa con orden_id apuntando a la orden que se esta borrando,
+  y esa llave foranea no es deferrable: al cerrar la sentencia el movimiento
+  apunta a una fila que ya no existe.
+
+  La solucion no necesita tocar el esquema, solo separar las sentencias:
+   1. Los documentos, porque NADA los arrastra. documentos.entidad_id no tiene
+      llave foranea, asi que sin este paso quedan filas huerfanas apuntando a
+      una orden inexistente, mas sus archivos en el bucket privado.
+   2. Las lineas, en su propia sentencia. La reversa se inserta mientras la
+      orden todavia existe, asi que la llave foranea se cumple.
+   3. La orden. Los movimientos que quedaron apuntandola pasan a orden_id nulo
+      por ON DELETE SET NULL, y el libro se conserva entero.
+
+  Verificado con rollback contra la base real: el stock vuelve a su valor
+  original y el libro conserva los consumos Y sus reversas.
+
+  LA ALTERNATIVA QUE LA PANTALLA OFRECE PRIMERO ES ANULAR, y para casi todos los
+  casos es la correcta: el trigger ordenes_anula_revierte_stock devuelve el
+  stock con movimientos de ajuste y la orden queda en el historial. Borrar es
+  para la orden que nunca debio existir, no para el trabajo que salio mal.
+
+  Se pide escribir el folio. En un listado de doscientas ordenes es lo unico
+  corto y unico que identifica a cada una.
+*/
+export async function eliminarOrden(_prev: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
+  try {
+    await requiereRol(PERMISOS.administrar);
+  } catch {
+    return { error: "Solo un administrador puede borrar una orden de mantención." };
+  }
+
+  const id = texto(datos, "id");
+  const confirmacion = texto(datos, "confirmacion");
+  const folioEsperado = texto(datos, "folio_esperado");
+
+  if (!id) return { error: "Falta la orden." };
+  if (confirmacion !== folioEsperado) {
+    return { error: `Para borrar, escribe exactamente el folio: ${folioEsperado}` };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  /* Paso 1: los adjuntos. Nada los arrastra, asi que se van a mano. */
+  const { data: docs, error: errorDocs } = await supabase
+    .from("documentos")
+    .delete()
+    .eq("entidad_tipo", "orden")
+    .eq("entidad_id", id)
+    .select("storage_path, bucket");
+
+  if (errorDocs) return { error: traduceError(errorDocs.code, errorDocs.message) };
+
+  let archivosHuerfanos = 0;
+  if (docs && docs.length > 0) {
+    const porBucket = new Map<string, string[]>();
+    for (const d of docs as { storage_path: string; bucket: string | null }[]) {
+      const bucket = d.bucket ?? "documentos";
+      porBucket.set(bucket, [...(porBucket.get(bucket) ?? []), d.storage_path]);
+    }
+    for (const [bucket, rutas] of porBucket) {
+      const { error } = await supabase.storage.from(bucket).remove(rutas);
+      if (error) {
+        console.error(`No pude borrar ${rutas.length} archivo(s) de ${bucket}:`, error.message);
+        archivosHuerfanos += rutas.length;
+      }
+    }
+  }
+
+  /* Paso 2: las lineas, en su propia sentencia. */
+  const { error: errorLineas } = await supabase
+    .from("orden_repuestos")
+    .delete()
+    .eq("orden_id", id);
+
+  if (errorLineas) {
+    return {
+      error:
+        errorLineas.code === "42501"
+          ? "Tu rol no tiene permiso para quitar las líneas de repuesto de esta orden."
+          : traduceError(errorLineas.code, errorLineas.message),
+    };
+  }
+
+  /* Paso 3: la orden. */
+  const { data, error } = await supabase
+    .from("ordenes_mantencion")
+    .delete()
+    .eq("id", id)
+    .select("folio");
+
+  if (error) return { error: traduceError(error.code, error.message) };
+  if (!data || data.length === 0) {
+    /*
+      Las lineas y los documentos ya se fueron. Decirlo importa: sin este aviso
+      la orden aparece vacia y nadie sabe por que.
+    */
+    return {
+      error:
+        "Esa orden ya no existe, pero sus líneas y adjuntos sí se borraron. Revisa la orden antes de seguir.",
+    };
+  }
+
+  revalidatePath("/admin/mantenciones");
+  revalidatePath("/admin/repuestos");
+  revalidatePath("/admin/reportes");
+  revalidatePath("/admin/activos");
+  revalidatePath("/admin");
+
+  if (archivosHuerfanos > 0) {
+    /*
+      No se redirige en este caso: hay algo que la persona tiene que leer. Un
+      redirect se llevaria el mensaje.
+    */
+    return {
+      ok: `Orden ${data[0].folio} borrada y el stock devuelto. Quedaron ${archivosHuerfanos} archivo(s) en el almacenamiento que hay que borrar aparte.`,
+    };
+  }
+
+  redirect("/admin/mantenciones");
+}

@@ -92,7 +92,12 @@ export function Tutorial({ rol }: { rol: Rol }) {
     los volveria a disparar.
   */
   const pasos = useMemo(
-    () => PASOS_TUTORIAL.filter((p) => !p.soloAdmin || rol === "admin"),
+    () =>
+      PASOS_TUTORIAL.filter((p) => {
+        if (p.soloAdmin && rol !== "admin") return false;
+        if (p.soloOperador && rol !== "admin" && rol !== "tecnico") return false;
+        return true;
+      }),
     [rol],
   );
 
@@ -131,16 +136,37 @@ export function Tutorial({ rol }: { rol: Rol }) {
     return () => window.removeEventListener("resize", alRedimensionar);
   }, []);
 
-  const cerrar = useCallback((completado: boolean) => {
+  /*
+    Salir TAMBIEN se recuerda, no solo terminar.
+
+    Antes solo se guardaba al llegar al final, asi que quien apretaba Salir en
+    el paso 8 volvia al Resumen y el recorrido arrancaba de nuevo a los 700 ms,
+    y como el paso 8 vive en /admin/activos, lo sacaba de la pantalla en la que
+    estaba. Un tutorial que no acepta un no es un tutorial que se apaga
+    borrando datos del navegador.
+  */
+  const cerrar = useCallback((_completado: boolean) => {
     setActivo(false);
     setMedido(null);
-    if (completado) guardarCompletado();
+    guardarCompletado();
   }, []);
 
+  /*
+    Abrir el recorrido navega a la ruta del primer paso, asi que si hay un
+    formulario a medio llenar se pierde lo tipeado. Se avisa antes, y solo en
+    las rutas donde eso puede pasar: preguntar siempre seria ruido.
+  */
   const abrir = useCallback(() => {
+    const enFormulario = /\/(nueva|nuevo|etiquetas)$/.test(ruta);
+    if (enFormulario && ruta !== "/admin") {
+      const sigue = window.confirm(
+        "El tutorial parte en el Resumen y vas a salir de esta pantalla. Si tienes algo a medio llenar, se pierde. ¿Abrir el tutorial igual?",
+      );
+      if (!sigue) return;
+    }
     setIndice(0);
     setActivo(true);
-  }, []);
+  }, [ruta]);
 
   /* Arranque automatico, solo la primera vez y solo en el resumen. */
   useEffect(() => {
@@ -241,10 +267,34 @@ export function Tutorial({ rol }: { rol: Rol }) {
 
   const anterior = useCallback(() => setIndice((i) => Math.max(0, i - 1)), []);
 
-  /* Teclado: Escape sale, flechas y Enter avanzan. */
+  /*
+    Teclado: Escape sale, flechas y Enter avanzan.
+
+    DOS GUARDAS QUE FALTABAN, y la primera provocaba un defecto grave. El
+    recorrido dice textualmente "el elemento destacado sigue funcionando:
+    pruebalo", asi que la gente lo usa. Con el tutorial abierto, escribir el
+    codigo de confirmacion de un borrado y apretar Enter no enviaba el
+    formulario: el manejador de aca lo interceptaba con preventDefault y
+    avanzaba al paso siguiente.
+
+    1. Si el foco esta en un campo de texto, el teclado es del campo.
+    2. Si el evento viene de otro dialogo modal, el teclado es de ese dialogo.
+       Los modales propios ya detienen la propagacion, pero esta guarda cubre
+       cualquiera que se agregue despues sin acordarse de hacerlo.
+  */
   useEffect(() => {
     if (!activo) return;
+
+    const enCampo = (destino: EventTarget | null): boolean => {
+      if (!(destino instanceof HTMLElement)) return false;
+      if (destino.isContentEditable) return true;
+      const etiqueta = destino.tagName;
+      if (etiqueta === "INPUT" || etiqueta === "TEXTAREA" || etiqueta === "SELECT") return true;
+      return Boolean(destino.closest("[role='dialog'][aria-modal='true']"));
+    };
+
     const alPulsar = (e: KeyboardEvent) => {
+      if (enCampo(e.target)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cerrar(false);

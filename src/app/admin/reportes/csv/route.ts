@@ -110,7 +110,15 @@ export async function GET(peticion: Request) {
         ? reportes.porTipo
         : reportes.porProveedor;
 
-  const periodo = [desde, hasta].filter(Boolean).join("_a_") || "todo";
+  /*
+    El nombre del archivo se sanea antes de pegarlo en Content-Disposition. Los
+    parametros desde y hasta vienen de la URL y no estaban validados: una
+    comilla en desde permitia cerrar el filename y agregar otro, y el navegador
+    guardaba el CSV con el nombre y la extension que dijera el segundo. Aca solo
+    sobreviven digitos y guiones, que es todo lo que una fecha necesita.
+  */
+  const limpia = (v: string | undefined) => (v ?? "").replace(/[^0-9-]/g, "").slice(0, 10);
+  const periodo = [limpia(desde), limpia(hasta)].filter(Boolean).join("_a_") || "todo";
   const nombre = `mantencion_por_${corte}_${periodo}.csv`;
 
   return new Response(armarCsv(corte, filas, reportes.totalCosto), {

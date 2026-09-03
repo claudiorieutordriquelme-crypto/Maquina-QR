@@ -43,14 +43,29 @@ export type Activo = {
 export type ActivoConEstado = Activo & {
   tipo_nombre: string | null;
   semaforo: Semaforo | null;
+  /*
+    Planes que CALCULAN SEMAFORO. Sale de v_estado_mantencion, que deja fuera
+    los planes desactivados y los activos dados de baja. Es el numero correcto
+    para hablar del semaforo y el EQUIVOCADO para hablar de un borrado.
+  */
   planes: number;
   /*
-    Mantenciones registradas. El listado lo necesita para saber si mostrar el
-    boton de borrar: la foreign key de ordenes_mantencion es RESTRICT, asi que
-    un activo con historial no se puede borrar por ningun camino, y un boton
-    que siempre va a fallar es peor que no mostrarlo.
+    TODOS los planes de la maquina, incluidos los desactivados. Este es el que
+    se va en cascada al borrar el activo, y por eso es el que tiene que aparecer
+    en la confirmacion. Antes se usaba el de arriba, y una maquina dada de baja
+    con tres planes desactivados decia "se van 0 planes" y se llevaba tres.
   */
+  planesTotales: number;
+  /** Mantenciones registradas, de cualquier estado. */
   ordenes: number;
+  /*
+    false cuando el conteo de ordenes no se pudo establecer con certeza, sea
+    porque la consulta fallo o porque se topo con el limite de filas. Con esto
+    en false la interfaz NO puede ofrecer el borrado: afirmar "esta maquina no
+    tiene historial" sin haber podido contar es exactamente la mentira que
+    provoca una perdida de datos.
+  */
+  conteoOrdenesFiable: boolean;
 };
 
 export type FiltrosActivos = {
@@ -100,15 +115,22 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
 }> {
   const supabase = await crearClienteServidor();
 
-  const [resActivos, resEstados, resOrdenes, resTipos] = await Promise.all([
+  const [resActivos, resEstados, resPlanes, resOrdenes, resTipos] = await Promise.all([
     supabase.from("activos").select("*").order("codigo_interno"),
     supabase.from("v_estado_mantencion").select("activo_id, semaforo"),
     /*
-      Solo la columna activo_id de cada orden, para contarlas por maquina. Se
-      piden todas y no un count por activo porque el cliente de Supabase no
-      expone GROUP BY: serian tantas consultas como activos.
+      Los planes se cuentan de su propia tabla y NO de la vista del semaforo.
+      La vista deja fuera los planes desactivados y las maquinas dadas de baja,
+      y ese numero es el que se le muestra a alguien antes de borrar en cascada.
     */
-    supabase.from("ordenes_mantencion").select("activo_id").limit(5000),
+    supabase.from("planes_mantencion").select("activo_id").limit(20000),
+    /*
+      Una columna por orden, para contarlas por maquina: el cliente de Supabase
+      no expone GROUP BY, asi que un count por activo serian tantas consultas
+      como activos. Se pide count exacto ademas de las filas, para poder
+      DETECTAR si el lote vino cortado.
+    */
+    supabase.from("ordenes_mantencion").select("activo_id", { count: "exact" }).limit(20000),
     listarTiposActivo(),
   ]);
 
@@ -116,19 +138,50 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
   if (error) return { activos: [], ubicaciones: [], error };
 
   /*
-    Un fallo al contar ordenes NO tumba el listado: se registra y se cuenta cero.
-    La consecuencia esta acotada y es del lado seguro, porque la base rechaza
-    igual el borrado de un activo con historial. Al reves si seria grave: dejar
-    la pantalla en blanco por no poder contar.
+    Un fallo al contar ordenes NO tumba el listado, pero TAMPOCO se cuenta cero
+    en silencio. Antes se hacia eso, y el efecto era que un error de lectura
+    hacia aparecer el boton de borrar en toda la flota, incluidas las maquinas
+    con historial. La base habria rechazado el borrado, pero la interfaz ya
+    habria afirmado que esas maquinas no tienen mantenciones.
+
+    Lo mismo con el corte por limite de filas: si el count exacto no coincide
+    con las filas recibidas, el lote vino incompleto y hay maquinas cuyo
+    historial no se vio.
   */
+  const filasOrdenes = (resOrdenes.data ?? []) as { activo_id: string | null }[];
+  const totalOrdenes = resOrdenes.count ?? null;
+  const conteoOrdenesFiable =
+    !resOrdenes.error && (totalOrdenes === null || totalOrdenes === filasOrdenes.length);
+
   if (resOrdenes.error) {
     console.error("No pude contar las mantenciones por activo:", resOrdenes.error.message);
+  } else if (!conteoOrdenesFiable) {
+    console.error(
+      `El conteo de mantenciones vino cortado: ${filasOrdenes.length} de ${totalOrdenes}. El borrado de activos queda deshabilitado hasta que esto se agregue en la base.`,
+    );
   }
+
   const ordenesPorActivo = new Map<string, number>();
-  for (const o of (resOrdenes.data ?? []) as { activo_id: string | null }[]) {
+  for (const o of filasOrdenes) {
     if (!o.activo_id) continue;
     ordenesPorActivo.set(o.activo_id, (ordenesPorActivo.get(o.activo_id) ?? 0) + 1);
   }
+
+  /*
+    Los planes tambien pueden venir cortados. Si eso pasa, se cuenta lo que hay
+    y se marca el conteo de ordenes como no fiable, que es lo que apaga el
+    borrado: preferible no ofrecerlo que ofrecerlo con un numero inventado.
+  */
+  const planesPorActivo = new Map<string, number>();
+  if (resPlanes.error) {
+    console.error("No pude contar los planes por activo:", resPlanes.error.message);
+  } else {
+    for (const p of (resPlanes.data ?? []) as { activo_id: string | null }[]) {
+      if (!p.activo_id) continue;
+      planesPorActivo.set(p.activo_id, (planesPorActivo.get(p.activo_id) ?? 0) + 1);
+    }
+  }
+  const planesFiable = !resPlanes.error;
 
   const nombreTipo = new Map(resTipos.map((t) => [t.codigo, t.nombre]));
 
@@ -149,7 +202,9 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
     tipo_nombre: nombreTipo.get(a.tipo_codigo) ?? null,
     semaforo: peorPorActivo.get(a.id)?.semaforo ?? null,
     planes: peorPorActivo.get(a.id)?.planes ?? 0,
+    planesTotales: planesPorActivo.get(a.id) ?? 0,
     ordenes: ordenesPorActivo.get(a.id) ?? 0,
+    conteoOrdenesFiable: conteoOrdenesFiable && planesFiable,
   }));
 
   const ubicaciones = [...new Set(activos.map((a) => a.ubicacion).filter((u): u is string => !!u))].sort();
@@ -237,12 +292,20 @@ export async function obtenerDetalleActivo(id: string): Promise<{
   activo: Activo | null;
   tipo_nombre: string | null;
   planes: PlanDeActivo[];
+  /** Las mas recientes, para mostrar. Topadas a 12. */
   lecturas: LecturaUso[];
+  /*
+    Cuantas lecturas hay EN TOTAL. La lista de arriba viene topada a 12, y con
+    ese largo se estaba escribiendo la advertencia del borrado: una maquina con
+    60 lecturas avisaba que se iban 12 y se llevaba 60.
+  */
+  lecturasTotales: number;
   ordenes: number;
 }> {
   const supabase = await crearClienteServidor();
 
-  const [resActivo, resPlanes, resEstado, resLecturas, resOrdenes, tipos] = await Promise.all([
+  const [resActivo, resPlanes, resEstado, resLecturas, resOrdenes, resLecturasTotal, tipos] =
+    await Promise.all([
     supabase.from("activos").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("planes_mantencion")
@@ -263,12 +326,24 @@ export async function obtenerDetalleActivo(id: string): Promise<{
       .from("ordenes_mantencion")
       .select("id", { count: "exact", head: true })
       .eq("activo_id", id),
+    /* Conteo aparte, exacto y sin traer filas: la lista de arriba esta topada. */
+    supabase
+      .from("lecturas_uso")
+      .select("id", { count: "exact", head: true })
+      .eq("activo_id", id),
     listarTiposActivo(),
   ]);
 
   if (resActivo.error || !resActivo.data) {
     if (resActivo.error) console.error("No pude leer el activo:", resActivo.error.message);
-    return { activo: null, tipo_nombre: null, planes: [], lecturas: [], ordenes: 0 };
+    return {
+      activo: null,
+      tipo_nombre: null,
+      planes: [],
+      lecturas: [],
+      lecturasTotales: 0,
+      ordenes: 0,
+    };
   }
 
   const activo = resActivo.data as Activo;
@@ -306,6 +381,7 @@ export async function obtenerDetalleActivo(id: string): Promise<{
     tipo_nombre: tipos.find((t) => t.codigo === activo.tipo_codigo)?.nombre ?? null,
     planes,
     lecturas: (resLecturas.data ?? []) as LecturaUso[],
+    lecturasTotales: resLecturasTotal.count ?? 0,
     ordenes: resOrdenes.count ?? 0,
   };
 }

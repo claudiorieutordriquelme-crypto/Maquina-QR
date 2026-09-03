@@ -16,8 +16,11 @@ import {
 } from "@/lib/formato";
 import {
   AgregarLinea,
+  BotonEliminarDocumento,
   BotonEliminarLinea,
   BotonVerDocumento,
+  EditarLinea,
+  ZonaBorradoOrden,
   FormularioEditarOrden,
   SubirFactura,
 } from "./piezas";
@@ -125,9 +128,19 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
                   {formateaNumero(l.cantidad)} {l.repuesto_unidad ?? ""} ×{" "}
                   {formateaPesos(l.costo_unitario)}
                 </p>
-                {puedeAdministrar ? (
-                  <div className="mt-2">
-                    <BotonEliminarLinea id={l.id} ordenId={orden.id} />
+                {/* Editar lo puede un operador; borrar, solo un admin. Es la
+                    misma separacion que tienen las politicas de la base. */}
+                {puedeOperar ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-4">
+                    <EditarLinea
+                      id={l.id}
+                      ordenId={orden.id}
+                      cantidad={l.cantidad}
+                      costoUnitario={l.costo_unitario}
+                    />
+                    {puedeAdministrar ? (
+                      <BotonEliminarLinea id={l.id} ordenId={orden.id} />
+                    ) : null}
                   </div>
                 ) : null}
               </li>
@@ -142,7 +155,7 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2 text-right">Costo unitario</th>
                   <th className="px-3 py-2 text-right">Subtotal</th>
-                  {puedeAdministrar ? <th className="px-3 py-2" /> : null}
+                  {puedeOperar ? <th className="px-3 py-2" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -163,9 +176,19 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
                     <td className="px-3 py-2 text-right font-semibold text-gris-900">
                       {formateaPesos(l.subtotal)}
                     </td>
-                    {puedeAdministrar ? (
+                    {puedeOperar ? (
                       <td className="px-3 py-2 text-right">
-                        <BotonEliminarLinea id={l.id} ordenId={orden.id} />
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          <EditarLinea
+                            id={l.id}
+                            ordenId={orden.id}
+                            cantidad={l.cantidad}
+                            costoUnitario={l.costo_unitario}
+                          />
+                          {puedeAdministrar ? (
+                            <BotonEliminarLinea id={l.id} ordenId={orden.id} />
+                          ) : null}
+                        </div>
                       </td>
                     ) : null}
                   </tr>
@@ -207,7 +230,16 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
                     {formateaFechaCorta(d.created_at)}
                   </p>
                 </div>
-                <BotonVerDocumento storagePath={d.storage_path} />
+                <div className="flex items-center gap-4">
+                  <BotonVerDocumento storagePath={d.storage_path} />
+                  {puedeAdministrar ? (
+                    <BotonEliminarDocumento
+                      id={d.id}
+                      ordenId={orden.id}
+                      nombre={d.nombre_archivo}
+                    />
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -246,6 +278,17 @@ export default async function OrdenPage({ params }: { params: Promise<{ id: stri
           puedeOperar={puedeOperar}
         />
       </section>
+
+      {/*
+        El borrado va al final de la ficha, despues de todo lo demas. No es
+        estetica: una accion irreversible no puede quedar al alcance de un clic
+        distraido mientras se revisa la orden.
+      */}
+      {puedeAdministrar ? (
+        <section className="border-t border-gris-200 pt-6">
+          <ZonaBorradoOrden id={orden.id} folio={orden.folio} />
+        </section>
+      ) : null}
     </div>
   );
 }

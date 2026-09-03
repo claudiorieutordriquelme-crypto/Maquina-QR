@@ -18,12 +18,28 @@ import type { PuntoMes } from "@/lib/serie-mensual";
   plata mirada de dos maneras.
 */
 
-/* Con mas de seis columnas, en pantalla angosta se rotula una de cada dos. */
-function claseEtiqueta(indice: number, total: number): string {
-  if (total <= 6) return "";
-  const esUltima = indice === total - 1;
-  if (esUltima || indice % 2 === 0) return "";
-  return "hidden sm:block";
+/*
+  Cuantas columnas se rotulan.
+
+  El intento anterior era ocultar una de cada dos bajo 640 px con clases de
+  Tailwind, y no alcanzaba: con 24 meses quedaban 12 rotulos en 360 px de ancho,
+  o sea 30 px por rotulo para un texto como "nov 25" que necesita unos 34. Los
+  rotulos se salian de su columna y terminaban dibujados sobre la barra vecina,
+  asi que cada uno quedaba apuntando al mes equivocado. Peor que no rotular.
+
+  Ahora el calculo NO depende del ancho de pantalla, y por eso funciona en
+  cualquiera: se rotula una de cada N columnas, con N elegido para que nunca
+  haya mas de seis rotulos. Siempre entra la primera y siempre entra la ultima,
+  que son las que ubican la serie en el tiempo. El resto de los valores se lee
+  en la tabla de abajo, que existe justamente para eso.
+*/
+const MAXIMO_ROTULOS = 6;
+
+function rotula(indice: number, total: number): boolean {
+  if (total <= MAXIMO_ROTULOS) return true;
+  if (indice === 0 || indice === total - 1) return true;
+  const salto = Math.ceil(total / (MAXIMO_ROTULOS - 1));
+  return indice % salto === 0;
 }
 
 function Columnas({
@@ -73,16 +89,18 @@ function Columnas({
       {/* La linea base va bajo las columnas, en gris recesivo. */}
       <div className="border-t border-gris-300" />
 
+      {/*
+        overflow-hidden en cada celda: si un rotulo no cabe se recorta en su
+        propia columna en vez de invadir la vecina. whitespace-nowrap para que no
+        se parta "nov 25" en dos lineas.
+      */}
       <div className="mt-1 flex gap-[3px] sm:gap-1">
         {puntos.map((p, i) => (
           <span
             key={p.mes}
-            className={`min-w-0 flex-1 text-center text-[10px] leading-tight text-gris-500 ${claseEtiqueta(
-              i,
-              puntos.length,
-            )}`}
+            className="min-w-0 flex-1 overflow-hidden text-center text-[10px] leading-tight whitespace-nowrap text-gris-500"
           >
-            {p.etiqueta}
+            {rotula(i, puntos.length) ? p.etiqueta : ""}
           </span>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
+import { Dialogo } from "@/components/dialogo";
 import { eliminarActivo, type EstadoFormulario } from "@/app/admin/activos/acciones";
 
 /*
@@ -124,20 +125,6 @@ export function BotonBorrarActivo({
 }) {
   const [abierto, setAbierto] = useState(false);
   const cerrar = useCallback(() => setAbierto(false), []);
-  const caja = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!abierto) return;
-    caja.current?.focus();
-    const alPulsar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        cerrar();
-      }
-    };
-    window.addEventListener("keydown", alPulsar);
-    return () => window.removeEventListener("keydown", alPulsar);
-  }, [abierto, cerrar]);
 
   return (
     <>
@@ -151,17 +138,12 @@ export function BotonBorrarActivo({
       </button>
 
       {abierto ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 print:hidden">
-          <div aria-hidden="true" onClick={cerrar} className="absolute inset-0 bg-negro/55" />
-
-          <div
-            ref={caja}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`borrar-${activoId}`}
-            tabIndex={-1}
-            className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-xl border border-gris-200 bg-blanco p-5 shadow-elevada outline-none sm:rounded-xl"
-          >
+        <Dialogo
+          titulo={`Borrar ${codigoInterno} ${nombre}`}
+          alCerrar={cerrar}
+          ancho="max-w-lg"
+        >
+          <div className="p-5">
             <div className="flex overflow-hidden rounded-lg border border-gris-200">
               <div className="w-2 shrink-0 bg-acento" aria-hidden="true" />
               <div className="min-w-0 flex-1 p-4">
@@ -176,15 +158,22 @@ export function BotonBorrarActivo({
                   su código QR impreso deja de funcionar.
                 </p>
 
+                {/*
+                  enfocar en false: el foco inicial ya lo pone Dialogo en el
+                  primer campo, que es este mismo input. Dos cosas peleando por
+                  el foco dejaban el cursor en el contenedor y el usuario
+                  escribia sin que entrara ninguna tecla.
+                */}
                 <FormularioBorrado
                   activoId={activoId}
                   codigoInterno={codigoInterno}
                   alCancelar={cerrar}
+                  enfocar={false}
                 />
               </div>
             </div>
           </div>
-        </div>
+        </Dialogo>
       ) : null}
     </>
   );

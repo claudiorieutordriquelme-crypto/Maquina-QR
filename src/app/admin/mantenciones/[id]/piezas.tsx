@@ -2,9 +2,12 @@
 
 import { useActionState, useState, useTransition } from "react";
 import {
+  actualizarLinea,
   actualizarOrden,
   agregarLinea,
+  eliminarDocumento,
   eliminarLinea,
+  eliminarOrden,
   subirFactura,
   urlFirmada,
   type EstadoAccion,
@@ -481,5 +484,239 @@ export function BotonVerDocumento({ storagePath }: { storagePath: string }) {
         </span>
       ) : null}
     </>
+  );
+}
+
+/*
+  Editar una linea de repuesto ya cargada.
+
+  Antes corregir una cantidad mal digitada exigia que un administrador borrara
+  la linea y el tecnico la volviera a cargar, y eso dejaba dos movimientos extra
+  en el libro de stock por cada digito equivocado. Los triggers de la base ya
+  cubrian el UPDATE, solo faltaba la pantalla.
+*/
+export function EditarLinea({
+  id,
+  ordenId,
+  cantidad,
+  costoUnitario,
+}: {
+  id: string;
+  ordenId: string;
+  cantidad: number;
+  costoUnitario: number | null;
+}) {
+  const [estado, accion, pendiente] = useActionState<EstadoAccion, FormData>(actualizarLinea, {});
+  const [abierto, setAbierto] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="text-sm font-semibold text-primario hover:underline"
+      >
+        Editar
+      </button>
+    );
+  }
+
+  return (
+    <form action={accion} className="mt-2 w-full rounded-md border border-gris-200 p-3">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="orden_id" value={ordenId} />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-sm font-semibold text-gris-800">Cantidad</span>
+          <input
+            type="number"
+            name="cantidad"
+            step="0.01"
+            min="0.01"
+            required
+            defaultValue={cantidad}
+            className={claseCampo}
+          />
+          <span className="mt-1 block text-xs text-gris-500">
+            Al cambiarla, la base ajusta el stock por la diferencia.
+          </span>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-gris-800">Costo unitario</span>
+          <input
+            type="number"
+            name="costo_unitario"
+            step="1"
+            min="0"
+            required
+            defaultValue={costoUnitario ?? 0}
+            className={claseCampo}
+          />
+          <span className="mt-1 block text-xs text-gris-500">
+            El subtotal y el costo de la orden los recalcula la base.
+          </span>
+        </label>
+      </div>
+
+      <Mensaje estado={estado} />
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pendiente}
+          className="rounded-md bg-primario px-4 py-2 text-sm font-semibold text-blanco disabled:opacity-60"
+        >
+          {pendiente ? "Guardando..." : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbierto(false)}
+          className="rounded-md border border-gris-300 px-4 py-2 text-sm font-semibold text-gris-800"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* Quitar un adjunto. Borra la fila Y el archivo del bucket privado. */
+export function BotonEliminarDocumento({
+  id,
+  ordenId,
+  nombre,
+}: {
+  id: string;
+  ordenId: string;
+  nombre: string;
+}) {
+  const [estado, accion, pendiente] = useActionState<EstadoAccion, FormData>(
+    eliminarDocumento,
+    {},
+  );
+  const [confirmando, setConfirmando] = useState(false);
+
+  if (!confirmando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmando(true)}
+        className="text-sm font-semibold text-gris-600 hover:text-acento"
+      >
+        Quitar
+      </button>
+    );
+  }
+
+  return (
+    <form action={accion} className="inline-flex flex-wrap items-center gap-2">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="orden_id" value={ordenId} />
+      <span className="text-sm text-gris-700">¿Borrar {nombre}?</span>
+      <button
+        type="submit"
+        disabled={pendiente}
+        className="rounded-md bg-acento px-3 py-1.5 text-sm font-semibold text-negro disabled:opacity-60"
+      >
+        {pendiente ? "Borrando..." : "Sí, borrar"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirmando(false)}
+        className="rounded-md border border-gris-300 px-3 py-1.5 text-sm font-semibold text-gris-800"
+      >
+        No
+      </button>
+      {estado.error ? (
+        <span role="alert" className="basis-full text-xs font-medium text-gris-900">
+          {estado.error}
+        </span>
+      ) : null}
+    </form>
+  );
+}
+
+/*
+  Zona de borrado de la orden completa.
+
+  ANULAR VA PRIMERO Y NO ES UN DETALLE DE ORDEN. Anular devuelve el stock con
+  movimientos de ajuste y deja la orden en el historial con su registro: para
+  el trabajo que salio mal, eso es lo correcto. Borrar es para la orden que
+  nunca debio existir, y por eso queda detras de escribir el folio.
+*/
+export function ZonaBorradoOrden({ id, folio }: { id: string; folio: number }) {
+  const [estado, accion, pendiente] = useActionState<EstadoAccion, FormData>(eliminarOrden, {});
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-gris-200">
+      <div className="w-2 shrink-0 bg-acento" aria-hidden="true" />
+      <div className="min-w-0 flex-1 p-4">
+        <h2 className="text-sm font-bold text-gris-900">Borrar esta orden</h2>
+        <p className="mt-1.5 max-w-prose text-sm text-gris-600">
+          Antes de borrar, considera <span className="font-semibold">anularla</span>:
+          cambia el estado a Anulada arriba y la base devuelve el stock con
+          movimientos de ajuste, dejando la orden en el historial. Eso es lo que
+          corresponde cuando el trabajo salió mal.
+        </p>
+        <p className="mt-1.5 max-w-prose text-sm text-gris-600">
+          Borrarla la saca del historial y del reporte de costos. El stock vuelve
+          igual, y el libro de movimientos conserva el consumo y su reversa,
+          porque es de solo agregar. Los repuestos cargados y los adjuntos se van
+          con ella.
+        </p>
+
+        {!abierto ? (
+          <button
+            type="button"
+            onClick={() => setAbierto(true)}
+            className="mt-3 rounded-md border border-acento px-4 py-2.5 text-sm font-semibold text-gris-900 transition-colors hover:bg-acento hover:text-negro"
+          >
+            Quiero borrarla
+          </button>
+        ) : (
+          <form action={accion} className="mt-3">
+            <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="folio_esperado" value={String(folio)} />
+
+            <label className="block max-w-xs">
+              <span className="text-sm font-semibold text-gris-800">
+                Escribe el folio <span className="font-mono font-bold">{folio}</span> para
+                confirmar
+              </span>
+              <input
+                name="confirmacion"
+                autoComplete="off"
+                autoFocus
+                inputMode="numeric"
+                className={claseCampo}
+                placeholder={String(folio)}
+              />
+            </label>
+
+            <Mensaje estado={estado} />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={pendiente}
+                className="rounded-md bg-acento px-4 py-2.5 text-sm font-semibold text-negro disabled:opacity-60"
+              >
+                {pendiente ? "Borrando..." : "Borrar definitivamente"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbierto(false)}
+                className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }

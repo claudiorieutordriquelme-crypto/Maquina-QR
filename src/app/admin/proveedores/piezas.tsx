@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { actualizarProveedor, crearProveedor, type EstadoProveedor } from "./acciones";
+import {
+  actualizarProveedor,
+  crearProveedor,
+  eliminarProveedor,
+  type EstadoProveedor,
+} from "./acciones";
 import type { Proveedor } from "@/lib/datos/maestros";
 
 const claseCampo =
@@ -175,6 +180,85 @@ export function EditarProveedor({ proveedor }: { proveedor: Proveedor }) {
         >
           Cerrar
         </button>
+      </div>
+    </form>
+  );
+}
+
+/*
+  Borrar un proveedor.
+
+  DESACTIVAR VA PRIMERO, y no como cortesia. Las dos llaves foraneas que apuntan
+  a proveedores son ON DELETE SET NULL, o sea borrar no pierde el historial pero
+  si pierde QUIEN hizo cada trabajo, que es justamente lo que este sistema
+  existe para conservar. Un proveedor con el que ya no se trabaja se desactiva:
+  deja de ofrecerse en ordenes nuevas y su historial queda completo.
+
+  Borrar es para el proveedor que se cargo por error.
+*/
+export function BorrarProveedor({ proveedor }: { proveedor: Proveedor }) {
+  const [estado, accion, pendiente] = useActionState<EstadoProveedor, FormData>(
+    eliminarProveedor,
+    {},
+  );
+  const [abierto, setAbierto] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="text-sm font-semibold text-gris-600 transition-colors hover:text-acento"
+      >
+        Eliminar
+      </button>
+    );
+  }
+
+  return (
+    <form action={accion} className="mt-3 w-full">
+      <input type="hidden" name="id" value={proveedor.id} />
+      <input type="hidden" name="nombre_esperado" value={proveedor.nombre} />
+
+      <div className="flex overflow-hidden rounded-lg border border-gris-200">
+        <div className="w-2 shrink-0 bg-acento" aria-hidden="true" />
+        <div className="min-w-0 flex-1 p-4">
+          <p className="text-sm font-bold text-gris-900">Borrar {proveedor.nombre}</p>
+          <p className="mt-1.5 max-w-prose text-sm text-gris-600">
+            Las mantenciones que hizo <span className="font-semibold">no se pierden</span>,
+            pero quedan sin proveedor: se pierde quién hizo el trabajo. Si solo
+            dejaste de trabajar con él, mejor edítalo y ponlo{" "}
+            <span className="font-semibold">Inactivo</span>: deja de ofrecerse en
+            órdenes nuevas y conserva todo su historial.
+          </p>
+
+          <label className="mt-3 block max-w-sm">
+            <span className="text-sm font-semibold text-gris-800">
+              Escribe <span className="font-mono font-bold">{proveedor.nombre}</span> para
+              confirmar
+            </span>
+            <input name="confirmacion" autoComplete="off" autoFocus className={claseCampo} />
+          </label>
+
+          <Mensaje estado={estado} />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={pendiente}
+              className="rounded-md bg-acento px-4 py-2 text-sm font-semibold text-negro disabled:opacity-60"
+            >
+              {pendiente ? "Borrando..." : "Borrar definitivamente"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="rounded-md border border-gris-300 px-4 py-2 text-sm font-semibold text-gris-800"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       </div>
     </form>
   );

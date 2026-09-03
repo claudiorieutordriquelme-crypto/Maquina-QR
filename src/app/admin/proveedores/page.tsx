@@ -1,6 +1,6 @@
 import { PERMISOS, perfilHabilitado } from "@/lib/auth";
 import { listarProveedoresCompleto } from "@/lib/datos/maestros";
-import { CrearProveedor, EditarProveedor } from "./piezas";
+import { BorrarProveedor, CrearProveedor, EditarProveedor } from "./piezas";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,12 @@ export default async function ProveedoresPage() {
 
                 {p.notas ? <p className="mt-2 text-sm text-gris-600">{p.notas}</p> : null}
 
-                {puedeAdministrar ? <EditarProveedor proveedor={p} /> : null}
+                {puedeAdministrar ? (
+                  <div className="mt-3 flex flex-wrap items-start gap-4">
+                    <EditarProveedor proveedor={p} />
+                    <BorrarProveedor proveedor={p} />
+                  </div>
+                ) : null}
               </div>
             </li>
           ))}

@@ -34,11 +34,15 @@ export type PasoTutorial = {
    */
   ojo?: string;
   /**
-   * Paso que solo ve un administrador. No es cosmetico: la pantalla a la que
-   * apunta redirige a quien no tenga el rol, y un paso que lleva a una
-   * redireccion deja el recorrido senalando el vacio.
+   * Paso que solo ve un administrador. No es cosmetico: o la pantalla a la que
+   * apunta redirige a quien no tenga el rol, o el elemento que destaca solo se
+   * dibuja para administradores. En los dos casos el paso quedaria buscando un
+   * ancla que no existe: el componente reintenta 40 veces cada 50 ms y despues
+   * cae a una tarjeta centrada, o sea casi dos segundos de nada.
    */
   soloAdmin?: boolean;
+  /** Igual que soloAdmin, para elementos que exigen permiso de operar. */
+  soloOperador?: boolean;
 };
 
 export const PASOS_TUTORIAL: PasoTutorial[] = [
@@ -122,6 +126,8 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     id: "activos-nuevo",
     ruta: "/admin/activos",
     ancla: "activos-nuevo",
+    /* El boton "Nuevo activo" solo se dibuja para administradores. */
+    soloAdmin: true,
     titulo: "Cargar una máquina nueva",
     texto:
       "Solo cuatro campos son obligatorios: nombre, código interno, tipo y estado. El código QR se genera solo y al guardar te deja directo en la etiqueta, lista para imprimir.",
@@ -157,6 +163,8 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     id: "mantenciones-nueva",
     ruta: "/admin/mantenciones",
     ancla: "mant-nueva",
+    /* El boton de registrar mantencion exige permiso de operar. */
+    soloOperador: true,
     titulo: "Registrar una mantención",
     texto:
       "Primero se crea la orden y después se le cargan los repuestos y la factura. Al cargar un repuesto del maestro, el sistema descuenta el stock solo y recalcula el costo: esos números no se escriben a mano.",

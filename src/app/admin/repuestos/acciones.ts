@@ -146,3 +146,61 @@ export async function registrarMovimiento(
   revalidatePath("/admin");
   return { ok: "Movimiento registrado. El trigger ya actualizó el saldo." };
 }
+
+/*
+  Borrar un repuesto del maestro.
+
+  LA BASE LO IMPIDE CASI SIEMPRE, y con razon. Dos llaves foraneas apuntan aca
+  y las dos son ON DELETE RESTRICT:
+  - orden_repuestos.repuesto_id: si el repuesto se uso en alguna mantencion, no
+    se borra. Perder eso seria perder de que esta hecha la reparacion.
+  - movimientos_stock.repuesto_id: el libro de stock es append only, asi que
+    cualquier repuesto que haya tenido un ingreso, aunque sea la carga inicial,
+    tiene movimientos y no se puede borrar.
+
+  En la practica eso significa que solo se borra un repuesto que se cargo por
+  error y nunca se movio. Para todo el resto la operacion correcta es
+  DESACTIVARLO: deja de ofrecerse al cargar lineas nuevas y conserva su
+  historial y su stock.
+
+  La pantalla no ofrece el boton de borrar cuando la base va a rechazarlo. Un
+  boton que siempre falla manda a pelear con el sistema en vez de mostrar la
+  salida real.
+*/
+export async function eliminarRepuesto(
+  _p: EstadoMaestro,
+  datos: FormData,
+): Promise<EstadoMaestro> {
+  try {
+    await requiereRol(PERMISOS.administrar);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "No autorizado." };
+  }
+
+  const id = texto(datos, "id");
+  const confirmacion = texto(datos, "confirmacion");
+  const esperado = texto(datos, "nombre_esperado");
+
+  if (!id) return { error: "Falta el repuesto." };
+  if (confirmacion !== esperado) {
+    return { error: `Para borrar, escribe exactamente el nombre: ${esperado}` };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.from("repuestos").delete().eq("id", id).select("nombre");
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error:
+          "Este repuesto tiene movimientos de stock o se usó en alguna mantención, y la base impide borrarlo para no perder el historial. Desactívalo: deja de ofrecerse al cargar líneas nuevas y conserva todo su registro.",
+      };
+    }
+    return { error: traduce(error.code, error.message) };
+  }
+  if (!data || data.length === 0) return { error: "Ese repuesto ya no existe." };
+
+  revalidatePath("/admin/repuestos");
+  revalidatePath("/admin");
+  return { ok: `Repuesto "${data[0].nombre}" borrado.` };
+}

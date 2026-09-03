@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import {
   actualizarRepuesto,
   crearRepuesto,
+  eliminarRepuesto,
   registrarMovimiento,
   type EstadoMaestro,
 } from "./acciones";
@@ -344,6 +345,93 @@ export function RegistrarMovimiento({
       >
         {pendiente ? "Registrando..." : "Registrar movimiento"}
       </button>
+    </form>
+  );
+}
+
+/*
+  Borrar un repuesto del maestro.
+
+  La base lo impide casi siempre y con razon: orden_repuestos.repuesto_id y
+  movimientos_stock.repuesto_id son las dos ON DELETE RESTRICT. Cualquier
+  repuesto que se haya usado en una mantencion, o que tenga aunque sea la carga
+  inicial de stock, no se borra. En la practica esto sirve para el que se cargo
+  por error y nunca se movio.
+
+  Para todo el resto la operacion correcta es DESACTIVARLO desde Editar: deja de
+  ofrecerse al cargar lineas nuevas y conserva su historial y su stock. El aviso
+  lo dice antes de que la persona intente y choque con el error de la base.
+*/
+export function BorrarRepuesto({
+  id,
+  nombre,
+}: {
+  id: string;
+  nombre: string;
+}) {
+  const [estado, accion, pendiente] = useActionState<EstadoMaestro, FormData>(
+    eliminarRepuesto,
+    {},
+  );
+  const [abierto, setAbierto] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="text-sm font-semibold text-gris-600 transition-colors hover:text-acento"
+      >
+        Eliminar
+      </button>
+    );
+  }
+
+  return (
+    <form action={accion} className="mt-3 w-full">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="nombre_esperado" value={nombre} />
+
+      <div className="flex overflow-hidden rounded-lg border border-gris-200">
+        <div className="w-2 shrink-0 bg-acento" aria-hidden="true" />
+        <div className="min-w-0 flex-1 p-4">
+          <p className="text-sm font-bold text-gris-900">Borrar {nombre}</p>
+          <p className="mt-1.5 max-w-prose text-sm text-gris-600">
+            Solo se puede borrar un repuesto que nunca se movió. Si tiene
+            movimientos de stock, incluida la carga inicial, o se usó en alguna
+            mantención, la base lo va a rechazar para no perder el historial. En
+            ese caso edítalo y márcalo{" "}
+            <span className="font-semibold">inactivo</span>: deja de ofrecerse al
+            cargar líneas nuevas y conserva todo su registro.
+          </p>
+
+          <label className="mt-3 block max-w-sm">
+            <span className="text-sm font-semibold text-gris-800">
+              Escribe <span className="font-mono font-bold">{nombre}</span> para confirmar
+            </span>
+            <input name="confirmacion" autoComplete="off" autoFocus className={claseCampo} />
+          </label>
+
+          <Mensaje estado={estado} />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={pendiente}
+              className="rounded-md bg-acento px-4 py-2 text-sm font-semibold text-negro disabled:opacity-60"
+            >
+              {pendiente ? "Borrando..." : "Borrar definitivamente"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="rounded-md border border-gris-300 px-4 py-2 text-sm font-semibold text-gris-800"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
     </form>
   );
 }

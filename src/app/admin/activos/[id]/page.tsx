@@ -14,12 +14,13 @@ import {
   textoPlazo,
 } from "@/lib/formato";
 import { EditarActivo, ZonaBorrado } from "./piezas";
+import { AccionesPlan, NuevoPlan } from "./planes-piezas";
 
 export const dynamic = "force-dynamic";
 
 export default async function ActivoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ activo, tipo_nombre, planes, lecturas, ordenes }, perfil, tipos, gasto] =
+  const [{ activo, tipo_nombre, planes, lecturas, lecturasTotales, ordenes }, perfil, tipos, gasto] =
     await Promise.all([
       obtenerDetalleActivo(id),
       perfilHabilitado(),
@@ -79,7 +80,10 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
             etiqueta: "Horómetro",
             valor: activo.horometro_actual !== null ? formateaHoras(activo.horometro_actual) : "Sin dato",
           },
-          { etiqueta: "Mantenciones", valor: `${ordenes}` },
+          /* "Registradas" y no "Mantenciones": mas abajo, en el bloque de
+             gasto, hay otro numero que cuenta solo las completadas. Dos numeros
+             distintos con el mismo nombre en la misma pantalla es un defecto. */
+          { etiqueta: "Mantenciones registradas", valor: `${ordenes}` },
         ].map((d) => (
           <div key={d.etiqueta} className="rounded-lg border border-gris-200 p-3">
             <p className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
@@ -91,15 +95,18 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
-          Planes de mantención
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
+            Planes de mantención
+          </h2>
+          {puedeAdministrar ? <NuevoPlan activoId={activo.id} /> : null}
+        </div>
 
         {planes.length === 0 ? (
           <p className="rounded-lg border border-gris-200 p-4 text-sm text-gris-600">
             Este activo no tiene planes definidos, así que no aparece en el
-            semáforo del resumen. Los planes todavía no se administran desde el
-            panel: se cargan por base de datos.
+            semáforo del resumen y el sistema no va a avisar nada sobre esta
+            máquina. Crea al menos uno con el botón de arriba.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -150,6 +157,10 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
 
                     {p.descripcion_tareas ? (
                       <p className="mt-1 text-sm text-gris-600">{p.descripcion_tareas}</p>
+                    ) : null}
+
+                    {puedeAdministrar ? (
+                      <AccionesPlan plan={p} activoId={activo.id} />
                     ) : null}
                   </div>
                 </li>
@@ -203,9 +214,12 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
               </div>
               <div className="rounded-lg border border-gris-200 p-4">
                 <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
-                  Mantenciones
+                  Completadas
                 </dt>
                 <dd className="mt-0.5 text-xl font-bold text-gris-900">{gasto.ordenes}</dd>
+                <dd className="mt-0.5 text-xs text-gris-500">
+                  De {ordenes} registrada{ordenes === 1 ? "" : "s"}
+                </dd>
               </div>
               <div className="rounded-lg border border-gris-200 p-4">
                 <dt className="text-xs font-semibold tracking-wide text-gris-500 uppercase">
@@ -222,6 +236,11 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
                 <dd className="mt-0.5 text-sm font-semibold text-gris-900">
                   {formateaPesos(gasto.correctiva)}
                 </dd>
+                {gasto.otras > 0 ? (
+                  <dd className="mt-1 text-xs text-gris-500">
+                    Predictiva: {formateaPesos(gasto.otras)}
+                  </dd>
+                ) : null}
               </div>
             </dl>
 
@@ -304,7 +323,7 @@ export default async function ActivoPage({ params }: { params: Promise<{ id: str
               activo={activo}
               ordenes={ordenes}
               planes={planes.length}
-              lecturas={lecturas.length}
+              lecturas={lecturasTotales}
             />
           </section>
         </>

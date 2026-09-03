@@ -95,3 +95,56 @@ export async function actualizarProveedor(
   revalidatePath("/admin/proveedores");
   return { ok: "Proveedor actualizado." };
 }
+
+/*
+  Borrar un proveedor.
+
+  QUE PASA CON EL HISTORIAL: las dos llaves foraneas que apuntan aca son
+  ON DELETE SET NULL. ordenes_mantencion.proveedor_id queda en null y
+  repuestos.proveedor_habitual_id tambien. O sea el historial NO se pierde: las
+  ordenes siguen ahi con su costo, pero dejan de decir quien hizo el trabajo.
+  Eso es una perdida de trazabilidad, que es justamente el proposito de este
+  sistema, asi que la pantalla ofrece primero la alternativa correcta.
+
+  LA ALTERNATIVA: desactivar. La tabla tiene columna activo y los desplegables
+  de seleccion ya la respetan, asi que un proveedor desactivado deja de
+  ofrecerse en ordenes nuevas y conserva todo su historial. Para un proveedor
+  con el que ya no se trabaja, eso es lo que corresponde. Borrar es para el que
+  se cargo por error.
+
+  Se pide escribir el nombre para confirmar, y se informa cuantas ordenes van a
+  quedar sin proveedor, porque ese numero es lo que decide si conviene borrar.
+*/
+export async function eliminarProveedor(
+  _p: EstadoProveedor,
+  datos: FormData,
+): Promise<EstadoProveedor> {
+  try {
+    await requiereRol(PERMISOS.administrar);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "No autorizado." };
+  }
+
+  const id = texto(datos, "id");
+  const confirmacion = texto(datos, "confirmacion");
+  const esperado = texto(datos, "nombre_esperado");
+
+  if (!id) return { error: "Falta el proveedor." };
+  if (confirmacion !== esperado) {
+    return { error: `Para borrar, escribe exactamente el nombre: ${esperado}` };
+  }
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.from("proveedores").delete().eq("id", id).select("nombre");
+
+  if (error) return { error: traduce(error.code, error.message) };
+  if (!data || data.length === 0) return { error: "Ese proveedor ya no existe." };
+
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/mantenciones");
+  revalidatePath("/admin/repuestos");
+  revalidatePath("/admin/reportes");
+  return {
+    ok: `Proveedor "${data[0].nombre}" borrado. Las mantenciones que hizo se conservan, pero quedaron sin proveedor asociado.`,
+  };
+}

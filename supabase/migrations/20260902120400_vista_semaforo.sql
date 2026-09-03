@@ -1,3 +1,16 @@
+-- CORRECCION POSTERIOR, IMPORTANTE.
+--
+-- Estas dos vistas se crearon aca sin la opcion security_invoker. La base de
+-- produccion SI la tiene puesta (verificado: security_invoker=on en las dos),
+-- asi que no hubo exposicion. El defecto estaba en este archivo, que es el que
+-- se aplicaria sobre una base nueva: sin esa opcion, una vista se evalua con
+-- los permisos de su DUEÑO y no de quien consulta, o sea se convierte en una
+-- puerta lateral que evita las politicas RLS de las tablas que lee.
+--
+-- Las dos sentencias del final del archivo lo dejan igual que produccion. No se
+-- editan los CREATE VIEW de arriba a proposito: este archivo reconstruye lo que
+-- ya existe, y un ALTER al final deja constancia de por que esta.
+
 -- 20260902120400_vista_semaforo.sql
 -- Vista de tasa de uso y vista del semaforo. Cuando un plan define intervalo por dias y por horas, manda el que venza primero.
 --
@@ -201,3 +214,9 @@ create view public.v_estado_mantencion as
         END AS semaforo
    FROM proy p;
 
+-- security_invoker: la vista aplica el RLS de QUIEN CONSULTA y no el de su
+-- dueño. Sin esto, una cuenta deshabilitada con token vigente podria leer
+-- activos, planes y ordenes a traves de la vista, porque puede_leer() ya
+-- devuelve false pero el dueño de la vista sigue teniendo acceso a las tablas.
+alter view public.v_estado_mantencion set (security_invoker = on);
+alter view public.v_tasa_uso set (security_invoker = on);

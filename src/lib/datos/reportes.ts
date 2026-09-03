@@ -223,6 +223,13 @@ export type GastoActivo = {
   ordenes: number;
   preventiva: number;
   correctiva: number;
+  /*
+    Todo lo que no es preventiva ni correctiva, hoy solo predictiva. Existe para
+    que los tres numeros cuadren con el total: antes el desglose mostraba
+    preventiva y correctiva, la plata de una predictiva desaparecia del desglose
+    y el total seguia incluyendola, asi que la tarjeta se contradecia sola.
+  */
+  otras: number;
   ultima_fecha: string | null;
   serie: PuntoMes[];
   /** Meses anteriores a la ventana visible del grafico. Se declara en pantalla. */
@@ -302,7 +309,15 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
 
   const porActivo = new Map<
     string,
-    { total: number; ordenes: number; preventiva: number; correctiva: number; ultima: string | null; movimientos: { mes: string; monto: number }[] }
+    {
+      total: number;
+      ordenes: number;
+      preventiva: number;
+      correctiva: number;
+      otras: number;
+      ultima: string | null;
+      movimientos: { mes: string; monto: number }[];
+    }
   >();
 
   for (const o of ordenes) {
@@ -310,12 +325,13 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
     const monto = Number(o.costo_total ?? 0);
     const actual =
       porActivo.get(o.activo_id) ??
-      { total: 0, ordenes: 0, preventiva: 0, correctiva: 0, ultima: null, movimientos: [] };
+      { total: 0, ordenes: 0, preventiva: 0, correctiva: 0, otras: 0, ultima: null, movimientos: [] };
 
     actual.total += monto;
     actual.ordenes += 1;
     if (o.tipo === "preventiva") actual.preventiva += monto;
-    if (o.tipo === "correctiva") actual.correctiva += monto;
+    else if (o.tipo === "correctiva") actual.correctiva += monto;
+    else actual.otras += monto;
     if (!actual.ultima || o.fecha_ejecucion > actual.ultima) actual.ultima = o.fecha_ejecucion;
     const mes = mesDeFecha(o.fecha_ejecucion);
     if (mes) actual.movimientos.push({ mes, monto });
@@ -342,6 +358,7 @@ export async function cargarPanelGasto(mesesVisibles = 24): Promise<PanelGasto> 
       ordenes: g?.ordenes ?? 0,
       preventiva: g?.preventiva ?? 0,
       correctiva: g?.correctiva ?? 0,
+      otras: g?.otras ?? 0,
       ultima_fecha: g?.ultima ?? null,
       serie: serie.puntos,
       mesesRecortados: serie.recortados,
@@ -376,6 +393,8 @@ export type GastoDeActivo = {
   ordenes: number;
   preventiva: number;
   correctiva: number;
+  /** Todo lo que no es preventiva ni correctiva. Ver GastoActivo.otras. */
+  otras: number;
   ultima_fecha: string | null;
   serie: PuntoMes[];
   mesesRecortados: number;
@@ -401,6 +420,7 @@ export async function cargarGastoDeActivo(
     ordenes: 0,
     preventiva: 0,
     correctiva: 0,
+    otras: 0,
     ultima_fecha: null,
     serie: [],
     mesesRecortados: 0,
@@ -422,6 +442,7 @@ export async function cargarGastoDeActivo(
   let total = 0;
   let preventiva = 0;
   let correctiva = 0;
+  let otras = 0;
   let ultima: string | null = null;
 
   for (const o of ordenes) {
@@ -429,7 +450,8 @@ export async function cargarGastoDeActivo(
     const monto = Number(o.costo_total ?? 0);
     total += monto;
     if (o.tipo === "preventiva") preventiva += monto;
-    if (o.tipo === "correctiva") correctiva += monto;
+    else if (o.tipo === "correctiva") correctiva += monto;
+    else otras += monto;
     if (!ultima || o.fecha_ejecucion > ultima) ultima = o.fecha_ejecucion;
     const mes = mesDeFecha(o.fecha_ejecucion);
     if (mes) movimientos.push({ mes, monto });
@@ -442,6 +464,7 @@ export async function cargarGastoDeActivo(
     ordenes: ordenes.length,
     preventiva,
     correctiva,
+    otras,
     ultima_fecha: ultima,
     serie: serie.puntos,
     mesesRecortados: serie.recortados,

@@ -220,7 +220,19 @@ export default async function ActivosPage({
                     ) : null}
                     <div className="flex gap-1">
                       <dt className="font-semibold">Planes:</dt>
-                      <dd>{a.planes}</dd>
+                      {/* Se muestran los dos numeros cuando difieren. Un plan
+                          desactivado existe pero no calcula semaforo, y esconder
+                          esa diferencia era lo que hacia que el borrado
+                          prometiera llevarse menos de lo que se llevaba. */}
+                      <dd>
+                        {a.planesTotales}
+                        {a.planesTotales !== a.planes ? (
+                          <span className="text-gris-500">
+                            {" "}
+                            ({a.planes} con semáforo)
+                          </span>
+                        ) : null}
+                      </dd>
                     </div>
                   </dl>
 
@@ -241,18 +253,29 @@ export default async function ActivosPage({
                     </a>
 
                     {/*
-                      El borrado aparece solo si es administrador Y la maquina no
-                      tiene mantenciones. Con historial, la foreign key RESTRICT
-                      de la base lo rechaza siempre, y un boton que va a fallar
-                      manda a pelear con el sistema en vez de mostrar la salida
-                      real, que es darla de baja desde su ficha.
+                      El borrado aparece con TRES condiciones, y la tercera es la
+                      que faltaba: hay que haber podido CONTAR. Si la consulta de
+                      ordenes falla o vuelve cortada, conteoOrdenesFiable es
+                      false y no se ofrece el borrado, porque afirmar "esta
+                      maquina no tiene historial" sin haber contado es la mentira
+                      que provoca una perdida de datos.
+
+                      Las otras dos: ser administrador, y que la maquina no tenga
+                      mantenciones. Con historial la llave foranea RESTRICT lo
+                      rechaza siempre, y un boton que va a fallar manda a pelear
+                      con el sistema en vez de mostrar la salida real, que es
+                      darla de baja desde su ficha.
+
+                      Se pasa planesTotales y no planes: el primero cuenta todos,
+                      incluidos los desactivados, que es lo que el CASCADE se
+                      lleva de verdad.
                     */}
-                    {puedeAdministrar && a.ordenes === 0 ? (
+                    {puedeAdministrar && a.conteoOrdenesFiable && a.ordenes === 0 ? (
                       <BotonBorrarActivo
                         activoId={a.id}
                         codigoInterno={a.codigo_interno}
                         nombre={a.nombre}
-                        planes={a.planes}
+                        planes={a.planesTotales}
                       />
                     ) : null}
                   </div>
