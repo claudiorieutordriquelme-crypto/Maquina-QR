@@ -69,7 +69,13 @@ function armarCsv(corte: Corte, filas: CorteCosto[], total: number): string {
   ];
 
   // \r\n porque es lo que Excel espera en un CSV.
-  return "﻿" + lineas.join("\r\n") + "\r\n";
+  /*
+    El BOM va escrito como escape y no como caracter literal. Un caracter
+    invisible al comienzo de una cadena sobrevive mal a un formateador, a un
+    editor que normalice el archivo o a un copiar y pegar, y sin el Excel abre
+    el CSV en la codificacion del sistema: Mantención se lee MantenciÃ³n.
+  */
+  return "\uFEFF" + lineas.join("\r\n") + "\r\n";
 }
 
 export async function GET(peticion: Request) {
