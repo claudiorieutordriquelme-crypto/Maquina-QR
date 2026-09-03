@@ -24,9 +24,10 @@
     NODE_EXTRA_CA_CERTS="$USERPROFILE/ca-windows.pem" node scripts/verifica-configuracion.mjs
 */
 import fs from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -77,6 +78,32 @@ const rest = async (token, ruta, opciones = {}) => {
     /* 204 */
   }
   return { estado: r.status, cuerpo };
+};
+
+/*
+  El catalogo de Postgres no se alcanza por PostgREST, asi que la comprobacion
+  del trigger va por el mismo transporte SQL que usa el resto del proyecto.
+*/
+const sql = (texto) => {
+  const archivo = join(tmpdir(), `verifica-configuracion-${process.pid}.sql`);
+  fs.writeFileSync(archivo, texto);
+  try {
+    const r = spawnSync("node", [join(RAIZ, "scripts", "sql-remoto.mjs"), archivo, "--json"], {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    if (r.status !== 0) {
+      console.error(r.stderr || r.stdout);
+      process.exit(2);
+    }
+    return JSON.parse(r.stdout);
+  } finally {
+    try {
+      fs.unlinkSync(archivo);
+    } catch {
+      /* nada */
+    }
+  }
 };
 
 let fallas = 0;
@@ -233,18 +260,49 @@ if (!tokenTecnico) {
 
 console.log("\n=== 6. Guarda del ultimo administrador ===");
 /*
-  Se comprueba si el trigger de 20260902130000_guarda_ultimo_admin.sql esta
-  aplicado. No se prueba degradando a nadie: el escenario exige quedar con un
-  solo admin, y equivocarse ahi deja el sistema sin nadie que pueda entrar a
-  configuracion.
+  Se comprueba que el resguardo exista en la BASE y no solo en la aplicacion. La
+  verificacion de la accion no sobrevive a dos administradores degradandose a la
+  vez, ni a un UPDATE hecho desde cualquier otro cliente contra PostgREST.
+
+  No se prueba degradando a nadie. Ese escenario exige quedar con un solo admin,
+  y equivocarse ahi deja el sistema sin nadie que pueda entrar a configuracion.
+  El comportamiento del trigger se probo con rollback al aplicar la migracion:
+  bloquea degradar al ultimo, bloquea deshabilitarlo, y deja pasar el caso
+  legitimo de degradar a uno cuando queda otro.
 */
+const [guarda] = sql(
+  "select\n" +
+    "  (select count(*)::int from pg_trigger\n" +
+    "    where tgrelid = 'public.profiles'::regclass\n" +
+    "      and tgname = 'profiles_exige_admin_activo') as trigger_presente,\n" +
+    "  (select p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace\n" +
+    "    where n.nspname = 'public' and p.proname = 'tg_exige_admin_activo') as security_definer,\n" +
+    "  (select array_to_string(p.proconfig, ',') from pg_proc p\n" +
+    "    join pg_namespace n on n.oid = p.pronamespace\n" +
+    "    where n.nspname = 'public' and p.proname = 'tg_exige_admin_activo') as config,\n" +
+    "  (select has_function_privilege('anon', 'public.tg_exige_admin_activo()', 'execute'))\n" +
+    "    as anon_ejecuta;",
+);
+
+check("el trigger de base esta aplicado", 1, guarda.trigger_presente, guarda.trigger_presente === 1);
+check(
+  "la funcion es security definer",
+  true,
+  guarda.security_definer,
+  guarda.security_definer === true,
+);
+check(
+  "con search_path fijado",
+  "search_path",
+  guarda.config,
+  String(guarda.config ?? "").includes("search_path"),
+);
+check("anon no la ejecuta", false, guarda.anon_ejecuta, guarda.anon_ejecuta === false);
+
 console.log(
   admins.length > 1
-    ? `  nota: hay ${admins.length} administradores activos, asi que la guarda no esta en juego hoy`
+    ? `  nota: hay ${admins.length} administradores activos`
     : "  ATENCION: hay un solo administrador activo. Nombra otro antes de tocar roles.",
-);
-console.log(
-  "  la guarda de base vive en supabase/migrations/20260902130000_guarda_ultimo_admin.sql",
 );
 
 console.log(`\n${fallas === 0 ? "TODO OK" : `${fallas} FALLA(S)`}`);

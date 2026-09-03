@@ -7,12 +7,20 @@ import { baseParaQr, urlFicha } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
 
+/*
+  Estilos de los dos botones secundarios. Se comparten para que no se separen:
+  dos botones del mismo nivel que se ven distinto obligan a decidir cual pesa
+  mas, y ninguno pesa mas.
+*/
+const claseSecundario =
+  "inline-flex items-center gap-2 rounded-lg border border-gris-300 bg-blanco px-5 py-3 text-sm font-semibold text-gris-800 transition-colors hover:border-primario hover:text-primario";
+
 export default async function QrActivoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const activo = await obtenerActivo(id);
   if (!activo) notFound();
 
-  const { base, origen } = await baseParaQr();
+  const { base } = await baseParaQr();
   const url = urlFicha(base, activo.qr_token);
 
   return (
@@ -24,35 +32,6 @@ export default async function QrActivoPage({ params }: { params: Promise<{ id: s
         <h1 className="mt-2 text-2xl font-bold text-gris-900">Etiqueta QR</h1>
         <p className="mt-1 text-base text-gris-600">
           {activo.nombre} · {activo.codigo_interno}
-        </p>
-      </div>
-
-      {/*
-        La URL codificada se muestra grande y antes del boton de imprimir, a
-        proposito. Es la unica proteccion real contra imprimir una flota entera
-        contra el dominio equivocado: si el dominio cambia despues, cada etiqueta
-        pegada queda apuntando a una URL muerta y hay que reimprimir una por una.
-        Que la persona lea esta linea vale mas que cualquier variable de entorno.
-      */}
-      <div className="rounded-lg border border-gris-200 p-4 print:hidden">
-        <p className="text-xs font-bold tracking-widest text-gris-500 uppercase">
-          El QR apunta a
-        </p>
-        <p className="mt-1 font-mono text-sm break-all text-gris-900">{url}</p>
-        <p className="mt-2 text-sm text-gris-600">
-          Base tomada de la {origen}.
-          {origen === "dominio de esta visita" ? (
-            <>
-              {" "}
-              <span className="font-semibold text-gris-900">
-                Revísala antes de imprimir:
-              </span>{" "}
-              si estás en un deployment de vista previa, esa URL deja de existir
-              cuando el deployment se borra. Para fijarla, carga
-              <span className="font-mono"> NEXT_PUBLIC_APP_URL</span> en el
-              entorno.
-            </>
-          ) : null}
         </p>
       </div>
 
@@ -79,32 +58,47 @@ export default async function QrActivoPage({ params }: { params: Promise<{ id: s
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 print:hidden">
-        <BotonImprimir etiqueta="Imprimir esta etiqueta" />
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500"
-        >
-          Abrir la ficha pública
-        </a>
-        <Link
-          href="/admin/activos/etiquetas"
-          className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800 transition-colors hover:border-gris-500"
-        >
-          Impresión masiva
-        </Link>
-      </div>
+      {/*
+        La etiqueta va centrada sobre un fondo gris que hace de mesa: separa la
+        vista previa del resto de la pantalla sin encerrarla en otro marco, y en
+        papel se desarma entero para no gastar tinta.
 
-      <div className="zona-impresion">
-        <EtiquetaQr
-          base={base}
-          nombre={activo.nombre}
-          codigoInterno={activo.codigo_interno}
-          token={activo.qr_token}
-        />
-      </div>
+        En pantalla se centra; impresa se alinea a la izquierda, que es donde
+        conviene que salga un adhesivo de 70 mm para recortarlo.
+      */}
+      <section className="rounded-xl border border-gris-200 bg-gris-50 px-4 py-8 sm:px-6 sm:py-10 print:border-0 print:bg-transparent print:p-0">
+        <div className="zona-impresion flex justify-center print:justify-start">
+          <EtiquetaQr
+            base={base}
+            nombre={activo.nombre}
+            codigoInterno={activo.codigo_interno}
+            token={activo.qr_token}
+          />
+        </div>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-3 print:hidden">
+          <BotonImprimir etiqueta="Imprimir esta etiqueta" />
+
+          {/*
+            Abrir la ficha es ademas la forma de comprobar a donde apunta el
+            codigo antes de pegarlo en una maquina.
+          */}
+          <a href={url} target="_blank" rel="noreferrer" className={claseSecundario}>
+            <svg viewBox="0 0 20 20" className="size-4 shrink-0 fill-current" aria-hidden="true">
+              <path d="M11 2h7v7h-2V5.4l-7.3 7.3-1.4-1.4L14.6 4H11z" />
+              <path d="M4 4h5v2H4v10h10v-5h2v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+            </svg>
+            Abrir la ficha pública
+          </a>
+
+          <Link href="/admin/activos/etiquetas" className={claseSecundario}>
+            <svg viewBox="0 0 20 20" className="size-4 shrink-0 fill-current" aria-hidden="true">
+              <path d="M3 3h6v6H3zM11 3h6v6h-6zM3 11h6v6H3zM11 11h6v6h-6z" />
+            </svg>
+            Impresión masiva
+          </Link>
+        </div>
+      </section>
 
       <p className="max-w-prose text-sm text-gris-500 print:hidden">
         La etiqueta mide 70 por 50 milímetros. En pantalla se ve del mismo tamaño
