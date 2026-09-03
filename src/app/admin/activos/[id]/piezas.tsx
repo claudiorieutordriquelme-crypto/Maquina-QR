@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { actualizarActivo, eliminarActivo, type EstadoFormulario } from "../acciones";
+import { FormularioBorrado } from "@/components/borrar-activo";
+import { actualizarActivo, type EstadoFormulario } from "../acciones";
 import type { Activo, TipoActivo } from "@/lib/datos/activos";
 
 const claseCampo =
@@ -202,10 +203,6 @@ export function ZonaBorrado({
   planes: number;
   lecturas: number;
 }) {
-  const [estado, accion, pendiente] = useActionState<EstadoFormulario, FormData>(
-    eliminarActivo,
-    {},
-  );
   const [abierto, setAbierto] = useState(false);
 
   if (ordenes > 0) {
@@ -248,44 +245,14 @@ export function ZonaBorrado({
             Quiero borrarlo
           </button>
         ) : (
-          <form action={accion} className="mt-3">
-            <input type="hidden" name="id" value={activo.id} />
-            <input type="hidden" name="codigo_esperado" value={activo.codigo_interno} />
-
-            <label className="block max-w-sm">
-              <span className="text-sm font-semibold text-gris-800">
-                Escribe{" "}
-                <span className="font-mono font-bold">{activo.codigo_interno}</span> para
-                confirmar
-              </span>
-              <input
-                name="confirmacion"
-                autoComplete="off"
-                autoFocus
-                className={claseCampo}
-                placeholder={activo.codigo_interno}
-              />
-            </label>
-
-            <Mensaje estado={estado} />
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={pendiente}
-                className="rounded-md bg-acento px-4 py-2.5 text-sm font-semibold text-negro transition-opacity hover:opacity-90 disabled:opacity-60"
-              >
-                {pendiente ? "Borrando..." : "Borrar definitivamente"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAbierto(false)}
-                className="rounded-md border border-gris-300 px-4 py-2.5 text-sm font-semibold text-gris-800"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+          /* El formulario vive en components/borrar-activo, compartido con el
+             boton del listado: dos copias terminarian divergiendo y una de las
+             dos perderia la confirmacion por codigo. */
+          <FormularioBorrado
+            activoId={activo.id}
+            codigoInterno={activo.codigo_interno}
+            alCancelar={() => setAbierto(false)}
+          />
         )}
       </div>
     </div>

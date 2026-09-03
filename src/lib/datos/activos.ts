@@ -44,6 +44,13 @@ export type ActivoConEstado = Activo & {
   tipo_nombre: string | null;
   semaforo: Semaforo | null;
   planes: number;
+  /*
+    Mantenciones registradas. El listado lo necesita para saber si mostrar el
+    boton de borrar: la foreign key de ordenes_mantencion es RESTRICT, asi que
+    un activo con historial no se puede borrar por ningun camino, y un boton
+    que siempre va a fallar es peor que no mostrarlo.
+  */
+  ordenes: number;
 };
 
 export type FiltrosActivos = {
@@ -93,14 +100,35 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
 }> {
   const supabase = await crearClienteServidor();
 
-  const [resActivos, resEstados, resTipos] = await Promise.all([
+  const [resActivos, resEstados, resOrdenes, resTipos] = await Promise.all([
     supabase.from("activos").select("*").order("codigo_interno"),
     supabase.from("v_estado_mantencion").select("activo_id, semaforo"),
+    /*
+      Solo la columna activo_id de cada orden, para contarlas por maquina. Se
+      piden todas y no un count por activo porque el cliente de Supabase no
+      expone GROUP BY: serian tantas consultas como activos.
+    */
+    supabase.from("ordenes_mantencion").select("activo_id").limit(5000),
     listarTiposActivo(),
   ]);
 
   const error = resActivos.error?.message ?? resEstados.error?.message ?? null;
   if (error) return { activos: [], ubicaciones: [], error };
+
+  /*
+    Un fallo al contar ordenes NO tumba el listado: se registra y se cuenta cero.
+    La consecuencia esta acotada y es del lado seguro, porque la base rechaza
+    igual el borrado de un activo con historial. Al reves si seria grave: dejar
+    la pantalla en blanco por no poder contar.
+  */
+  if (resOrdenes.error) {
+    console.error("No pude contar las mantenciones por activo:", resOrdenes.error.message);
+  }
+  const ordenesPorActivo = new Map<string, number>();
+  for (const o of (resOrdenes.data ?? []) as { activo_id: string | null }[]) {
+    if (!o.activo_id) continue;
+    ordenesPorActivo.set(o.activo_id, (ordenesPorActivo.get(o.activo_id) ?? 0) + 1);
+  }
 
   const nombreTipo = new Map(resTipos.map((t) => [t.codigo, t.nombre]));
 
@@ -121,6 +149,7 @@ export async function listarActivos(filtros: FiltrosActivos = {}): Promise<{
     tipo_nombre: nombreTipo.get(a.tipo_codigo) ?? null,
     semaforo: peorPorActivo.get(a.id)?.semaforo ?? null,
     planes: peorPorActivo.get(a.id)?.planes ?? 0,
+    ordenes: ordenesPorActivo.get(a.id) ?? 0,
   }));
 
   const ubicaciones = [...new Set(activos.map((a) => a.ubicacion).filter((u): u is string => !!u))].sort();

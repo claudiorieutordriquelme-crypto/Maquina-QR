@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BotonBorrarActivo } from "@/components/borrar-activo";
 import { listarActivos, listarTiposActivo } from "@/lib/datos/activos";
 import { perfilHabilitado, PERMISOS } from "@/lib/auth";
 import { ETIQUETA_ESTADO_ACTIVO, PRESENTACION_SEMAFORO, formateaHoras } from "@/lib/formato";
@@ -238,6 +239,22 @@ export default async function ActivosPage({
                     >
                       Ver ficha pública
                     </a>
+
+                    {/*
+                      El borrado aparece solo si es administrador Y la maquina no
+                      tiene mantenciones. Con historial, la foreign key RESTRICT
+                      de la base lo rechaza siempre, y un boton que va a fallar
+                      manda a pelear con el sistema en vez de mostrar la salida
+                      real, que es darla de baja desde su ficha.
+                    */}
+                    {puedeAdministrar && a.ordenes === 0 ? (
+                      <BotonBorrarActivo
+                        activoId={a.id}
+                        codigoInterno={a.codigo_interno}
+                        nombre={a.nombre}
+                        planes={a.planes}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </li>
