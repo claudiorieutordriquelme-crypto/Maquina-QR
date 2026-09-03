@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import { crearClienteServidor } from "@/lib/supabase/server";
+import type { Rol } from "@/lib/roles";
 
 /*
   Sesion y rol, del lado del servidor.
@@ -12,7 +13,14 @@ import { crearClienteServidor } from "@/lib/supabase/server";
   excluye una ruta tambien excluye las Server Functions de esa ruta.
 */
 
-export type Rol = "admin" | "tecnico" | "lector";
+/*
+  Los roles y sus etiquetas viven en lib/roles, que no importa nada de
+  servidor. Se reexportan desde aca para no romper los import existentes, pero
+  un componente de cliente tiene que traerlos desde lib/roles: importarlos por
+  esta puerta arrastra el cliente de Supabase de servidor al navegador.
+*/
+export type { Rol } from "@/lib/roles";
+export { ETIQUETA_ROL, DESCRIPCION_ROL, ROLES } from "@/lib/roles";
 
 export type Perfil = {
   id: string;
@@ -102,15 +110,3 @@ export async function requiereRol(roles: Rol[]): Promise<Perfil> {
 
   return perfil;
 }
-
-export const ETIQUETA_ROL: Record<Rol, string> = {
-  admin: "Administrador",
-  tecnico: "Técnico",
-  lector: "Lector",
-};
-
-export const DESCRIPCION_ROL: Record<Rol, string> = {
-  admin: "Acceso total: activos, mantenciones, maestros, usuarios y configuración.",
-  tecnico: "Registra y edita mantenciones, consume repuestos y toma lecturas. No borra.",
-  lector: "Solo lectura del panel.",
-};

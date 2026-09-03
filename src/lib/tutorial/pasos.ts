@@ -33,6 +33,12 @@ export type PasoTutorial = {
    * evitan perder trabajo, no informacion de relleno.
    */
   ojo?: string;
+  /**
+   * Paso que solo ve un administrador. No es cosmetico: la pantalla a la que
+   * apunta redirige a quien no tenga el rol, y un paso que lleva a una
+   * redireccion deja el recorrido senalando el vacio.
+   */
+  soloAdmin?: boolean;
 };
 
 export const PASOS_TUTORIAL: PasoTutorial[] = [
@@ -58,7 +64,7 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     ancla: "nav",
     titulo: "Las secciones del panel",
     texto:
-      "Las que están en gris con “(en construcción)” todavía no existen: el menú dice la verdad sobre lo que hay construido. En el teléfono esta fila se desliza en vez de ocupar tres líneas.",
+      "Siete secciones, de Resumen a Configuración. El menú muestra solo lo que tu rol puede abrir: si eres Lector o Técnico, Configuración no aparece. En el teléfono esta fila se desliza en vez de ocupar tres líneas.",
   },
   {
     id: "semaforo",
@@ -76,7 +82,16 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     titulo: "Tres números de contexto",
     texto:
       "Planes que el sistema está calculando, máquinas fuera de servicio y repuestos bajo el mínimo. Este último es el único que suele exigir hacer algo hoy.",
-    ojo: "Los números no se pueden pinchar. Para ver qué máquinas son, hay que ir a Activos y filtrar por semáforo.",
+    ojo: "Los números no se pueden pinchar, pero la tabla que viene abajo ya responde cuáles son.",
+  },
+  {
+    id: "criticidad",
+    ruta: "/admin",
+    ancla: "resumen-criticidad",
+    titulo: "Qué atender primero",
+    texto:
+      "Los planes ordenados por urgencia: primero lo vencido, y dentro de cada grupo lo que vence antes. Cada fila lleva directo a registrar esa mantención, con la máquina y el plan ya elegidos.",
+    ojo: "Muestra los 12 más críticos. Si quedan más, lo dice al pie; el resto se ve en Activos filtrando por semáforo.",
   },
   {
     id: "activos-lista",
@@ -148,11 +163,30 @@ export const PASOS_TUTORIAL: PasoTutorial[] = [
     ojo: "El consumo no se registra acá: lo genera la orden de mantención al cargarle repuestos. Registrarlo a mano lo descontaría dos veces.",
   },
   {
+    id: "reportes",
+    ruta: "/admin/reportes",
+    ancla: "reportes-tipo",
+    titulo: "Preventiva contra correctiva",
+    texto:
+      "Dos barras que miden lo mismo de dos maneras: cuántas órdenes y cuánta plata. Cuando la correctiva pesa más en costo que en cantidad, cada falla no planificada está saliendo más cara que una mantención programada.",
+    ojo: "El filtro de fechas de arriba manda sobre los tres cortes a la vez. Todo lo que se ve acá cuenta solo órdenes completadas y con fecha de ejecución.",
+  },
+  {
+    id: "config-costos",
+    ruta: "/admin/configuracion",
+    ancla: "config-costos",
+    soloAdmin: true,
+    titulo: "El interruptor que hay que pensar dos veces",
+    texto:
+      "Enciende y apaga la publicación de los costos en la ficha del QR. En esta misma pantalla se cambian los umbrales del semáforo y los roles de cada persona.",
+    ojo: "La ficha pública no pide cuenta. Con esto encendido, cualquiera que escanee la etiqueta ve cuánto costó cada mantención.",
+  },
+  {
     id: "cierre",
     ruta: "/admin",
     titulo: "Eso es todo",
     texto:
-      "Lo que falta por construir aparece en gris en el menú y en la lista del final del resumen. Puedes volver a ver este recorrido cuando quieras, con el botón Tutorial del encabezado.",
+      "Puedes volver a ver este recorrido cuando quieras, con el botón Tutorial del encabezado. Ningún paso te deja a medias: el elemento destacado sigue funcionando mientras lo miras.",
     ojo: "La ficha que abre el QR es pública: cualquiera con el link, o con una foto de la etiqueta, la ve. Vale saberlo antes de decidir qué información se publica ahí.",
   },
 ];

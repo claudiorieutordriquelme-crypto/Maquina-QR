@@ -175,7 +175,7 @@ export default async function ReportesPage({
             </div>
           </section>
 
-          <section className="space-y-3">
+          <section className="space-y-3" data-tour="reportes-tipo">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
                 Preventiva contra correctiva

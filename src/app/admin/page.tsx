@@ -184,20 +184,12 @@ export default async function AdminPage() {
         </section>
       ) : null}
 
-      <section className="border-t border-gris-200 pt-6">
-        <h2 className="text-sm font-bold tracking-widest text-gris-500 uppercase">
-          Lo que falta construir
-        </h2>
-        <ul className="mt-3 space-y-1.5 text-sm text-gris-600">
-          <li>
-            La tabla ordenada por criticidad, con acceso directo a registrar la mantención de
-            cada plan.
-          </li>
-          <li>Los gráficos de costo por activo y el split preventiva contra correctiva.</li>
-          <li>La exportación a CSV de los reportes por activo, tipo y proveedor.</li>
-          <li>La pantalla de configuración, donde se cambian los umbrales de alerta.</li>
-        </ul>
-      </section>
+      {/*
+        Aca vivia la lista de "lo que falta construir". Se saca porque ya no
+        queda nada de esa lista sin construir, y una lista de pendientes que
+        enumera cosas hechas es peor que no tenerla: entrena a la gente a no
+        leerla.
+      */}
     </div>
   );
 }

@@ -50,7 +50,7 @@ const SECCIONES: Seccion[] = [
     */
     roles: ["admin", "tecnico", "lector"],
   },
-  { nombre: "Configuración", etapa: 10, roles: ["admin"] },
+  { nombre: "Configuración", ruta: "/admin/configuracion", etapa: 10, roles: ["admin"] },
 ];
 
 function SinAcceso({ motivo }: { motivo: string }) {
@@ -129,7 +129,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Tutorial />
+            <Tutorial rol={perfil.rol} />
             <form action={cerrarSesion}>
               <button
                 type="submit"

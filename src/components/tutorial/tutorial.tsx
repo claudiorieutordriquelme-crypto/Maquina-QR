@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { PASOS_TUTORIAL } from "@/lib/tutorial/pasos";
+import type { Rol } from "@/lib/roles";
 
 /*
   Recorrido guiado dentro de la aplicacion.
@@ -79,9 +80,21 @@ function medirVentana(): Ventana {
   return { ancho: window.innerWidth, alto: window.innerHeight };
 }
 
-export function Tutorial() {
+export function Tutorial({ rol }: { rol: Rol }) {
   const router = useRouter();
   const ruta = usePathname();
+
+  /*
+    El recorrido se arma segun el rol. Los pasos marcados soloAdmin apuntan a
+    /admin/configuracion, que redirige a quien no sea administrador: dejarlos
+    para todos convertiria dos pasos en un salto al resumen sin explicacion.
+    Se memoriza porque el arreglo alimenta efectos, y uno nuevo en cada render
+    los volveria a disparar.
+  */
+  const pasos = useMemo(
+    () => PASOS_TUTORIAL.filter((p) => !p.soloAdmin || rol === "admin"),
+    [rol],
+  );
 
   const [activo, setActivo] = useState(false);
   const [indice, setIndice] = useState(0);
@@ -105,8 +118,8 @@ export function Tutorial() {
   const [ventana, setVentana] = useState<Ventana>(medirVentana);
 
   const tarjetaRef = useRef<HTMLDivElement>(null);
-  const paso = PASOS_TUTORIAL[indice];
-  const ultimo = indice === PASOS_TUTORIAL.length - 1;
+  const paso = pasos[indice];
+  const ultimo = indice === pasos.length - 1;
   const angosto = ventana.ancho < 640;
 
   // Derivado, no almacenado: si la medicion es de otro paso, no vale.
@@ -319,12 +332,12 @@ export function Tutorial() {
     <>
       {/* Lo que el lector de pantalla anuncia al cambiar de paso. */}
       <p aria-live="polite" className="sr-only">
-        Paso {indice + 1} de {PASOS_TUTORIAL.length}: {paso.titulo}
+        Paso {indice + 1} de {pasos.length}: {paso.titulo}
       </p>
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold tracking-widest text-primario uppercase">
-          Paso {indice + 1} de {PASOS_TUTORIAL.length}
+          Paso {indice + 1} de {pasos.length}
         </p>
         <button
           type="button"
@@ -338,7 +351,7 @@ export function Tutorial() {
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-gris-200">
         <div
           className="h-full rounded-full bg-primario transition-[width] duration-300"
-          style={{ width: `${((indice + 1) / PASOS_TUTORIAL.length) * 100}%` }}
+          style={{ width: `${((indice + 1) / pasos.length) * 100}%` }}
         />
       </div>
 
